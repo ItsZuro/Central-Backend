@@ -98,3 +98,12 @@ niubiz:
     id: ${NIUBIZ_MERCHANT_ID}
     user: ${NIUBIZ_USER}
     password: ${NIUBIZ_PASSWORD}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never

@@ -1,0 +1,62 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:central_test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE;NON_KEYWORDS=KEY
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: test-password
+
+  mail:
+    username: test@example.com
+    password: test-password
+
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: test-client-id
+            client-secret: test-client-secret
+
+app:
+  frontend:
+    url: http://localhost:4200
+  cors:
+    allowed-origins: http://localhost
+  jwt:
+    secret: MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=
+
+aws:
+  s3:
+    bucket-name: test-bucket
+    region: us-east-1
+    access-key: test-access-key
+    secret-key: test-secret-key
+
+google:
+  maps:
+    api-key: test-maps-key
+
+niubiz:
+  merchant:
+    id: test-merchant
+    user: test-user
+    password: test-password
+
+management:
+  health:
+    redis:
+      enabled: false
