@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -40,6 +41,7 @@ public class PaymentController {
         @Value("${app.frontend.url}")
         private String frontendUrl;
 
+        @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_CASHIER')")
         @GetMapping
         public ResponseEntity<ApiResponse<List<PaymentResponse>>> getAll(
                         @RequestParam(required = false) Long customerId,
@@ -52,12 +54,14 @@ public class PaymentController {
                                 new ApiResponse<>(true, "Lista de pagos", payments));
         }
 
+        @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_CASHIER')")
         @GetMapping("/{id}")
         public ResponseEntity<ApiResponse<PaymentResponse>> getById(@PathVariable Long id) {
                 return ResponseEntity.ok(
                                 new ApiResponse<>(true, "Pago encontrado", paymentService.getById(id)));
         }
 
+        @PreAuthorize("isAuthenticated()")
         @PostMapping("/niubiz/start")
         public ResponseEntity<ApiResponse<NiubizDTO.PaymentStartResponse>> startNiubizPayment(
                         @RequestBody @Valid PaymentStartRequest request) {
@@ -66,6 +70,7 @@ public class PaymentController {
                 return ResponseEntity.ok(new ApiResponse<>(true, "Sesión de Niubiz iniciada", response));
         }
 
+        @PreAuthorize("isAuthenticated()")
         @PostMapping("/niubiz/confirm")
         public ResponseEntity<ApiResponse<PaymentResponse>> confirmNiubizPayment(
                         @RequestBody @Valid NiubizDTO.PaymentConfirmRequest request) {
@@ -85,6 +90,7 @@ public class PaymentController {
                 response.sendRedirect(redirectUrl);
         }
 
+        @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_CASHIER')")
         @PutMapping("/{id}")
         public ResponseEntity<ApiResponse<PaymentResponse>> update(
                         @PathVariable Long id,
@@ -94,6 +100,7 @@ public class PaymentController {
                                 new ApiResponse<>(true, "Pago actualizado", response));
         }
 
+        @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_CASHIER')")
         @DeleteMapping("/{id}")
         public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
                 paymentService.delete(id);
