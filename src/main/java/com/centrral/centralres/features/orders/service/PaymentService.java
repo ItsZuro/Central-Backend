@@ -71,6 +71,8 @@ public class PaymentService {
                                                 "Orden no encontrada: " + request.getOrderId()));
 
                 validateOrderForPayment(order);
+                requireMatchingAmount(order, request.getAmount());
+                rejectAlreadyPaid(order);
 
                 // --- CORRECCIÓN CRÍTICA: FORMATO PURCHASE NUMBER ---
                 // Niubiz exige: Numérico y Max 12 dígitos.
@@ -111,6 +113,10 @@ public class PaymentService {
 
                 Order order = orderRepository.findById(orderId)
                                 .orElseThrow(() -> new EntityNotFoundException("Orden no encontrada ID: " + orderId));
+
+                validateOrderForPayment(order);
+                requireMatchingAmount(order, request.getAmount());
+                rejectAlreadyPaid(order);
 
                 boolean isAuthorized = niubizService.authorizePayment(
                                 request.getTransactionToken(),
@@ -154,9 +160,8 @@ public class PaymentService {
                                                 "Método de pago no encontrado con id: "
                                                                 + request.getPaymentMethodId()));
 
-                PaymentStatus defaultStatus = request.getIsOnline()
-                                ? PaymentStatus.PENDING
-                                : PaymentStatus.CONFIRMED;
+                // Un pago contraentrega no se confirma al crear la orden.
+                PaymentStatus defaultStatus = PaymentStatus.PENDING;
 
                 Payment payment = Payment.builder()
                                 .order(order)
@@ -168,7 +173,7 @@ public class PaymentService {
                                                 request.getTransactionCode() != null
                                                                 ? request.getTransactionCode()
                                                                 : UUID.randomUUID().toString())
-                                .status(request.getStatus() != null ? request.getStatus() : defaultStatus)
+                                .status(defaultStatus)
                                 .build();
 
                 order.getPayments().add(payment);
@@ -196,6 +201,19 @@ public class PaymentService {
 
                 payment.setStatus(PaymentStatus.CANCELLED);
                 paymentRepository.save(payment);
+        }
+
+        private void requireMatchingAmount(Order order, BigDecimal requestedAmount) {
+                if (requestedAmount == null || order.getTotal() == null
+                                || requestedAmount.compareTo(order.getTotal()) != 0) {
+                        throw new IllegalArgumentException("El importe no coincide con el total calculado por el servidor.");
+                }
+        }
+
+        private void rejectAlreadyPaid(Order order) {
+                if (paymentRepository.existsByOrder_IdAndStatus(order.getId(), PaymentStatus.CONFIRMED)) {
+                        throw new IllegalStateException("La orden ya tiene un pago confirmado.");
+                }
         }
 
         private void validateOrderForPayment(Order order) {
