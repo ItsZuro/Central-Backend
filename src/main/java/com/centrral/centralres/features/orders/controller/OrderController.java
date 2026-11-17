@@ -26,8 +26,10 @@ import com.centrral.centralres.features.orders.dto.order.request.OrderRequest;
 import com.centrral.centralres.features.orders.dto.order.request.UpdateLocationRequest;
 import com.centrral.centralres.features.orders.dto.order.request.UpdateStatusRequest;
 import com.centrral.centralres.features.orders.dto.order.response.OrderResponse;
+import com.centrral.centralres.features.orders.dto.order.response.DeliveryQuoteResponse;
 import com.centrral.centralres.features.orders.dto.payment.request.PaymentInOrderRequest;
 import com.centrral.centralres.features.orders.service.OrderService;
+import com.centrral.centralres.features.orders.service.DeliveryQuoteService;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +40,15 @@ import lombok.RequiredArgsConstructor;
 public class OrderController {
 
     private final OrderService orderService;
+    private final DeliveryQuoteService deliveryQuoteService;
+
+    @GetMapping("/delivery/quote")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<DeliveryQuoteResponse>> quoteDelivery(
+            @RequestParam double latitude, @RequestParam double longitude) {
+        DeliveryQuoteResponse quote = deliveryQuoteService.quote(latitude, longitude);
+        return ResponseEntity.ok(new ApiResponse<>(true, "Cobertura y tiempo de reparto verificados", quote));
+    }
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_WAITER', 'ROLE_CHEF', 'ROLE_CASHIER')")
