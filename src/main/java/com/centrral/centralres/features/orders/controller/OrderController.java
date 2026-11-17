@@ -40,6 +40,26 @@ import lombok.RequiredArgsConstructor;
 public class OrderController {
 
     private final OrderService orderService;
+
+    @GetMapping("/delivery/assigned-me")
+    @PreAuthorize("hasAnyRole('WAITER', 'ADMIN', 'MANAGER')")
+    public ResponseEntity<ApiResponse<List<OrderResponse>>> assignedDeliveries(
+            @AuthenticationPrincipal User user,
+            @RequestHeader(name = "Accept-Language", defaultValue = "es") String lang) {
+        return ResponseEntity.ok(new ApiResponse<>(true, "Repartos asignados",
+                orderService.getAssignedDeliveries(user, lang)));
+    }
+
+    @PutMapping("/{id}/delivery/status")
+    @PreAuthorize("hasAnyRole('WAITER', 'ADMIN', 'MANAGER')")
+    public ResponseEntity<ApiResponse<OrderResponse>> updateAssignedDeliveryStatus(
+            @PathVariable Long id, @Valid @RequestBody UpdateStatusRequest request,
+            @AuthenticationPrincipal User user,
+            @RequestHeader(name = "Accept-Language", defaultValue = "es") String lang) {
+        return ResponseEntity.ok(new ApiResponse<>(true, "Estado de reparto actualizado",
+                orderService.updateAssignedDeliveryStatus(id, request.getNewStatusCode(), user, lang)));
+    }
+
     private final DeliveryQuoteService deliveryQuoteService;
 
     @GetMapping("/delivery/quote")
