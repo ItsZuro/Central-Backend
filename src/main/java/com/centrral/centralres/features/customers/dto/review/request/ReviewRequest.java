@@ -3,6 +3,7 @@ package com.centrral.centralres.features.customers.dto.review.request;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -19,6 +20,7 @@ public class ReviewRequest {
     private Long reservationId;
     private Long productId;
 
+    @Size(max = 2000, message = "El comentario no debe superar 2000 caracteres")
     private String comment;
 
     @NotNull(message = "La calificación es obligatoria")
