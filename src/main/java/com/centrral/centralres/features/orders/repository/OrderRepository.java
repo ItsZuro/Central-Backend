@@ -14,6 +14,8 @@ import com.centrral.centralres.features.orders.model.Order;
 public interface OrderRepository extends JpaRepository<Order, Long> {
     List<Order> findByCustomer(Customer customer);
 
+    List<Order> findByEmployee_IdAndType_Code(Long employeeId, String typeCode);
+
     @Query("SELECT COUNT(o) FROM CustomerOrder o WHERE o.date BETWEEN :startOfDay AND :endOfDay")
     int countOrdersByDate(@Param("startOfDay") LocalDateTime startOfDay, @Param("endOfDay") LocalDateTime endOfDay);
 
