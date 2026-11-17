@@ -105,6 +105,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/v1/reservations/me").hasRole("CLIENT")
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/reservations/me/*/cancel").hasRole("CLIENT")
                         .requestMatchers("/api/v1/reservations/**").hasAnyRole("WAITER", "ADMIN", "MANAGER")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/contact").hasRole("CLIENT")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/contact").hasAnyRole("ADMIN", "MANAGER")
                         .requestMatchers("/api/v1/orders/**")
                         .hasAnyRole("CLIENT", "WAITER", "CHEF", "CASHIER", "ADMIN", "MANAGER")
 
