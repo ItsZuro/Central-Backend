@@ -28,6 +28,7 @@ import com.centrral.centralres.features.orders.dto.order.request.OrderRequest;
 import com.centrral.centralres.features.orders.dto.order.request.UpdateLocationRequest;
 import com.centrral.centralres.features.orders.dto.order.request.UpdateStatusRequest;
 import com.centrral.centralres.features.orders.dto.order.response.OrderResponse;
+import com.centrral.centralres.features.orders.dto.order.response.DeliveryQuoteResponse;
 import com.centrral.centralres.features.orders.dto.order.response.OrderStatusStepResponse;
 import com.centrral.centralres.features.orders.dto.orderdetail.request.OrderDetailInOrderRequest;
 import com.centrral.centralres.features.orders.dto.orderdetail.response.OrderDetailInOrderResponse;
@@ -83,6 +84,7 @@ public class OrderService {
         private final TableRepository tableRepository;
         private final StoreRepository storeRepository;
         private final DistanceMatrixService distanceMatrixService;
+        private final DeliveryQuoteService deliveryQuoteService;
         private final InvoiceGenerator invoiceGenerator;
         private final PaymentMethodRepository paymentMethodRepository;
 
@@ -617,46 +619,6 @@ public class OrderService {
                                                 .deliveryLatitude(addrDto.getLatitude())
                                                 .deliveryLongitude(addrDto.getLongitude());
 
-                                Store mainStore = storeRepository.findAll().stream()
-                                                .findFirst()
-                                                .orElseThrow(() -> new IllegalStateException(
-                                                                "No hay tiendas configuradas en el sistema."));
-
-                                double originLat = mainStore.getLatitude();
-                                double originLng = mainStore.getLongitude();
-                                double destLat = addrDto.getLatitude();
-                                double destLng = addrDto.getLongitude();
-
-                                try {
-                                        Map<String, Object> distanceResponse = distanceMatrixService
-                                                        .getDistanceAndDuration(originLat, originLng, destLat, destLng);
-
-                                        var rows = (List<?>) distanceResponse.get("rows");
-                                        if (rows != null && !rows.isEmpty()) {
-                                                var elements = (List<?>) ((Map<?, ?>) rows.get(0)).get("elements");
-                                                if (elements != null && !elements.isEmpty()) {
-                                                        Map<?, ?> element = (Map<?, ?>) elements.get(0);
-                                                        Map<?, ?> distance = (Map<?, ?>) element.get("distance");
-                                                        Map<?, ?> duration = (Map<?, ?>) element.get("duration");
-
-                                                        if (distance != null && duration != null) {
-                                                                log.info("Distancia: {}, Duración: {}",
-                                                                                distance.get("text"),
-                                                                                duration.get("text"));
-
-                                                                orderBuilder
-                                                                                .estimatedDistance(distance.get("text")
-                                                                                                .toString())
-                                                                                .estimatedDuration(duration.get("text")
-                                                                                                .toString());
-                                                        }
-                                                }
-                                        }
-                                } catch (Exception e) {
-                                        log.error("Error al obtener la distancia o duración estimada: {}",
-                                                        e.getMessage());
-                                }
-
                                 break;
 
                         case "DINE_IN":
@@ -874,24 +836,18 @@ public class OrderService {
         }
 
         private void calculateDeliveryEstimate(Order order, OrderRequest request) {
-                if (order.getType() != null &&
-                                "DELIVERY".equalsIgnoreCase(order.getType().getCode()) &&
-                                order.getDeliveryLatitude() != null &&
-                                order.getDeliveryLongitude() != null) {
-
-                        try {
-                                Store mainStore = storeRepository.findAll().stream().findFirst()
-                                                .orElseThrow(() -> new IllegalStateException(
-                                                                "No hay tiendas configuradas."));
-
-                                Map<String, Object> distanceResponse = distanceMatrixService.getDistanceAndDuration(
-                                                mainStore.getLatitude(), mainStore.getLongitude(),
-                                                order.getDeliveryLatitude(), order.getDeliveryLongitude());
-
-                        } catch (Exception e) {
-                                log.error("Error calculando delivery estimate: {}", e.getMessage());
-                                order.setEstimatedTime(45);
+                if (order.getType() != null
+                                && "DELIVERY".equalsIgnoreCase(order.getType().getCode())) {
+                        if (order.getDeliveryLatitude() == null || order.getDeliveryLongitude() == null) {
+                                throw new IllegalArgumentException("La ubicación de delivery es obligatoria.");
                         }
+                        // Falla de forma segura si Maps no responde o no existe ruta:
+                        // no guardar órdenes fuera de cobertura o sin cotización.
+                        DeliveryQuoteResponse quote = deliveryQuoteService.quote(
+                                        order.getDeliveryLatitude(), order.getDeliveryLongitude());
+                        order.setEstimatedDistance(quote.distanceKm() + " km");
+                        order.setEstimatedDuration(quote.durationMinutes() + " min");
+                        order.setEstimatedTime(quote.durationMinutes());
                 }
         }
 
