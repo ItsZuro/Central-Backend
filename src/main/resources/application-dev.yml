@@ -15,13 +15,6 @@ spring:
       ddl-auto: update
     show-sql: true
 
-  data:
-    redis:
-      host: localhost
-      port: 6379
-      password: ${REDIS_PASSWORD}
-      timeout: 60000
-
 app:
   frontend:
     url: http://localhost:4200

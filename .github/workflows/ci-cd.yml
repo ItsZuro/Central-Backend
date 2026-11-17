@@ -2,7 +2,7 @@ name: Backend CI/CD
 
 on:
   push:
-    branches: [main]
+    branches: [main, feature/cloud-final-project]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -46,7 +46,6 @@ jobs:
       POSTGRES_USER: central_ci
       POSTGRES_PASSWORD: central_ci_password
       POSTGRES_DB: central_ci
-      REDIS_PASSWORD: central_ci_redis_password
       EMAIL_USERNAME: ci@example.com
       EMAIL_PASSWORD: ci-email-password
       AWS_REGION: us-east-1

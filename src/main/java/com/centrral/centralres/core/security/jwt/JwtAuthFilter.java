@@ -64,13 +64,13 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             return;
         }
 
-        if (tokenBlacklistService.isBlacklisted(token)) {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        if (!jwtService.validate(token)) {
+            chain.doFilter(request, response);
             return;
         }
 
-        if (!jwtService.validate(token)) {
-            chain.doFilter(request, response);
+        if (tokenBlacklistService.isBlacklisted(token)) {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             return;
         }
 

@@ -13,12 +13,6 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.H2Dialect
 
-  data:
-    redis:
-      host: localhost
-      port: 6379
-      password: test-password
-
   mail:
     username: test@example.com
     password: test-password
@@ -43,8 +37,6 @@ aws:
   s3:
     bucket-name: test-bucket
     region: us-east-1
-    access-key: test-access-key
-    secret-key: test-secret-key
 
 google:
   maps:
@@ -56,7 +48,3 @@ niubiz:
     user: test-user
     password: test-password
 
-management:
-  health:
-    redis:
-      enabled: false

@@ -2,6 +2,7 @@ package com.centrral.centralres.core.security.repository;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -13,6 +14,10 @@ import com.centrral.centralres.core.security.model.TokenAudit;
 import jakarta.transaction.Transactional;
 
 public interface TokenAuditRepository extends JpaRepository<TokenAudit, Long> {
+
+    boolean existsByTokenAndEventTypeAndExpiresAtAfter(String token, TokenEventType eventType, Instant now);
+    Optional<TokenAudit> findFirstByTokenAndEventTypeAndExpiresAtAfterOrderByTimestampDesc(
+            String token, TokenEventType eventType, Instant now);
 
     /**
      * Elimina registros de auditoría antiguos según su timestamp.
