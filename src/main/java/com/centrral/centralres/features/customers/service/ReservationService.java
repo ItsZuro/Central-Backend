@@ -357,7 +357,8 @@ public class ReservationService {
         reservationRepository.save(reservation);
         publishReservationNotification(reservation, "confirmada");
 
-        // A confirmed future booking must not mark the physical table as occupied now.
+        // A future reservation should not set the physical table to occupied.
+        TableEntity table = reservation.getTable();
 
         log.info("✅ Reserva confirmada: id={}, cliente={}, mesa={}, fecha={}, hora={}, status={}",
                 reservation.getId(),
