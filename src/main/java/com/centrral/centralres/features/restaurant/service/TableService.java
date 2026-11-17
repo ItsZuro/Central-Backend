@@ -1,6 +1,7 @@
 package com.centrral.centralres.features.restaurant.service;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import com.centrral.centralres.core.config.ReservationProperties;
 import com.centrral.centralres.features.customers.model.Reservation;
+import com.centrral.centralres.features.customers.enums.ReservationStatus;
 import com.centrral.centralres.features.customers.repository.ReservationRepository;
 import com.centrral.centralres.features.orders.model.Order;
 import com.centrral.centralres.features.orders.repository.OrderRepository;
@@ -103,31 +105,49 @@ public class TableService {
     public boolean isTableAvailable(Long tableId, String startTime, int numberOfPeople, boolean includeBuffers) {
         TableEntity table = tableRepository.findById(tableId)
                 .orElseThrow(() -> new EntityNotFoundException("Mesa no encontrada con id: " + tableId));
+        return isAvailableAt(table, LocalDateTime.parse(startTime), numberOfPeople, includeBuffers);
+    }
 
-        if (!table.canAccommodate(numberOfPeople))
+    private boolean isAvailableAt(TableEntity table, LocalDateTime requested,
+            int numberOfPeople, boolean includeBuffers) {
+        if (table.getStatus() == TableStatus.OUT_OF_SERVICE || !table.canAccommodate(numberOfPeople)) {
             return false;
-
-        LocalDateTime start = LocalDateTime.parse(startTime);
-        LocalDateTime end = start.plusMinutes(table.getReservationDurationMinutes());
-
-        if (includeBuffers) {
-            int before = table.getBufferBeforeMinutes() != null ? table.getBufferBeforeMinutes()
-                    : reservationProperties.getBufferBeforeMinutes();
-            int after = table.getBufferAfterMinutes() != null ? table.getBufferAfterMinutes()
-                    : reservationProperties.getBufferAfterMinutes();
-
-            start = start.minusMinutes(before);
-            end = end.plusMinutes(after);
         }
-
-        LocalTime reservationStartTime = start.toLocalTime();
-        LocalTime reservationEndTime = end.toLocalTime();
-        if (reservationStartTime.isBefore(table.getOpenTime()) || reservationEndTime.isAfter(table.getCloseTime())) {
+        if (requested.isBefore(LocalDateTime.now(ZoneId.of("America/Lima")).plusMinutes(15))) {
             return false;
         }
 
-        List<Reservation> overlapping = reservationRepository.findOverlappingReservations(tableId, start, end);
-        return overlapping.isEmpty();
+        int before = includeBuffers
+                ? (table.getBufferBeforeMinutes() != null ? table.getBufferBeforeMinutes()
+                        : reservationProperties.getBufferBeforeMinutes()) : 0;
+        int after = includeBuffers
+                ? (table.getBufferAfterMinutes() != null ? table.getBufferAfterMinutes()
+                        : reservationProperties.getBufferAfterMinutes()) : 0;
+        LocalDateTime start = requested.minusMinutes(before);
+        LocalDateTime end = requested.plusMinutes(table.getReservationDurationMinutes() + after);
+        LocalDateTime open = requested.toLocalDate().atTime(table.getOpenTime());
+        LocalDateTime close = requested.toLocalDate().atTime(table.getCloseTime());
+        if (start.isBefore(open) || end.isAfter(close)) return false;
+
+        for (Reservation existing : reservationRepository.findByTable_IdAndReservationDate(
+                table.getId(), requested.toLocalDate())) {
+            if (existing.getStatus() != ReservationStatus.PENDING &&
+                    existing.getStatus() != ReservationStatus.CONFIRMED) continue;
+            int existingBefore = includeBuffers
+                    ? (existing.getTable().getBufferBeforeMinutes() != null
+                        ? existing.getTable().getBufferBeforeMinutes()
+                        : reservationProperties.getBufferBeforeMinutes()) : 0;
+            int existingAfter = includeBuffers
+                    ? (existing.getTable().getBufferAfterMinutes() != null
+                        ? existing.getTable().getBufferAfterMinutes()
+                        : reservationProperties.getBufferAfterMinutes()) : 0;
+            LocalDateTime booked = existing.getReservationDate().atTime(existing.getReservationTime());
+            LocalDateTime bookedStart = booked.minusMinutes(existingBefore);
+            LocalDateTime bookedEnd = booked.plusMinutes(
+                    existing.getTable().getReservationDurationMinutes() + existingAfter);
+            if (start.isBefore(bookedEnd) && end.isAfter(bookedStart)) return false;
+        }
+        return true;
     }
 
     /* -------------------- MESAS DISPONIBLES Y ÓPTIMA -------------------- */
@@ -187,28 +207,10 @@ public class TableService {
         LocalDateTime endOfDay = LocalDateTime.of(date.toLocalDate(), table.getCloseTime());
         int incrementMinutes = 30;
 
-        int bufferBefore = table.getBufferBeforeMinutes() != null ? table.getBufferBeforeMinutes()
-                : reservationProperties.getBufferBeforeMinutes();
-        int bufferAfter = table.getBufferAfterMinutes() != null ? table.getBufferAfterMinutes()
-                : reservationProperties.getBufferAfterMinutes();
-
         while (!start.plusMinutes(table.getReservationDurationMinutes()).isAfter(endOfDay)) {
-            LocalDateTime slotStart = start.minusMinutes(bufferBefore);
-            LocalDateTime slotEnd = start.plusMinutes(table.getReservationDurationMinutes() + bufferAfter);
-
-            if (slotStart.toLocalTime().isBefore(table.getOpenTime())
-                    || slotEnd.toLocalTime().isAfter(table.getCloseTime())) {
-                start = start.plusMinutes(incrementMinutes);
-                continue;
-            }
-
-            List<Reservation> overlapping = reservationRepository.findOverlappingReservations(table.getId(), slotStart,
-                    slotEnd);
-
-            if (overlapping.isEmpty()) {
+            if (isAvailableAt(table, start, table.getMinCapacity(), true)) {
                 times.add(start.toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm")));
             }
-
             start = start.plusMinutes(incrementMinutes);
         }
 
