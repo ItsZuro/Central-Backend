@@ -74,6 +74,8 @@ public class ReservationService {
             table = findTableById(dto.getTableId());
         }
 
+        // Serialize concurrent bookings on the same table across ECS tasks.
+        table = findTableByIdForUpdate(table.getId());
         validateReservationFields(dto, table, null, false);
 
         Reservation reservation = Reservation.builder()
@@ -86,10 +88,7 @@ public class ReservationService {
         Reservation saved = reservationRepository.save(reservation);
         publishReservationNotification(saved, "creada");
 
-        if (saved.getStatus() == ReservationStatus.CONFIRMED) {
-            table.setStatus(TableStatus.OCCUPIED);
-            tableRepository.save(table);
-        }
+        // Confirmation is not the same as physical occupancy.
 
         log.info("✅ Reserva creada: id={}, cliente={}, mesa={}, fecha={}, hora={}, status={}",
                 saved.getId(), customer.getId(), table.getCode(),
@@ -358,9 +357,7 @@ public class ReservationService {
         reservationRepository.save(reservation);
         publishReservationNotification(reservation, "confirmada");
 
-        TableEntity table = reservation.getTable();
-        table.setStatus(TableStatus.OCCUPIED);
-        tableRepository.save(table);
+        // A confirmed future booking must not mark the physical table as occupied now.
 
         log.info("✅ Reserva confirmada: id={}, cliente={}, mesa={}, fecha={}, hora={}, status={}",
                 reservation.getId(),
@@ -374,6 +371,18 @@ public class ReservationService {
     }
 
     /* -------------------- CANCEL -------------------- */
+    @Transactional
+    public ReservationResponse cancelReservationForAuthenticatedUser(Long reservationId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        User user = (User) authentication.getPrincipal();
+        Customer customer = customerRepository.findByUserId(user.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado"));
+        if (!reservationRepository.existsByIdAndCustomer_Id(reservationId, customer.getId())) {
+            throw new ResourceNotFoundException("Reserva no encontrada");
+        }
+        return cancelReservation(reservationId);
+    }
+
     @Transactional
     public ReservationResponse cancelReservation(Long reservationId) {
         Reservation reservation = findReservationById(reservationId);
@@ -410,8 +419,10 @@ public class ReservationService {
         if (dto.getNumberOfPeople() <= 0)
             throw new InvalidReservationException("El número de personas debe ser mayor a 0");
 
-        if (dto.getNumberOfPeople() > table.getCapacity())
-            throw new InvalidReservationException("La mesa no soporta esa cantidad de personas");
+        if (!table.canAccommodate(dto.getNumberOfPeople()))
+            throw new InvalidReservationException("La mesa no admite esa cantidad de personas");
+        if (table.getStatus() == TableStatus.OUT_OF_SERVICE)
+            throw new InvalidReservationException("La mesa está fuera de servicio");
 
         // Fallback de buffers
         int bufferBefore = table.getBufferBeforeMinutes() != null
@@ -453,6 +464,8 @@ public class ReservationService {
         for (Reservation r : reservations) {
             if (currentReservationId != null && r.getId().equals(currentReservationId))
                 continue;
+            if (r.getStatus() != ReservationStatus.PENDING && r.getStatus() != ReservationStatus.CONFIRMED)
+                continue;
 
             int existingBufferBefore = r.getTable().getBufferBeforeMinutes() != null
                     ? r.getTable().getBufferBeforeMinutes()
@@ -484,6 +497,11 @@ public class ReservationService {
     private Reservation findReservationById(Long id) {
         return reservationRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Reserva no encontrada"));
+    }
+
+    private TableEntity findTableByIdForUpdate(Long id) {
+        return tableRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Mesa no encontrada"));
     }
 
     private Customer findCustomerById(Long id) {
@@ -547,6 +565,8 @@ public class ReservationService {
         }
 
         // Validaciones
+        // Serialize concurrent bookings on the same table across ECS tasks.
+        table = findTableByIdForUpdate(table.getId());
         validateReservationFields(dto, table, null, false);
 
         Reservation reservation = Reservation.builder()
@@ -560,10 +580,7 @@ public class ReservationService {
 
         publishReservationNotification(saved, "creada");
 
-        if (saved.getStatus() == ReservationStatus.CONFIRMED) {
-            table.setStatus(TableStatus.OCCUPIED);
-            tableRepository.save(table);
-        }
+        // Confirmation is not the same as physical occupancy.
 
         log.info("✅ Reserva creada por usuario autenticado: id={}, cliente={}, mesa={}, fecha={}, hora={}, status={}",
                 saved.getId(), customer.getId(), table.getCode(),
@@ -577,7 +594,7 @@ public class ReservationService {
      */
     private TableEntity findBestTableForNumberOfPeople(int numberOfPeople, LocalDate date, LocalTime time) {
         return tableRepository.findAll().stream()
-                .filter(t -> t.getStatus() == TableStatus.FREE)
+                .filter(t -> t.getStatus() != TableStatus.OUT_OF_SERVICE)
                 .filter(t -> numberOfPeople >= t.getMinCapacity() && numberOfPeople <= t.getCapacity())
                 .sorted(Comparator.comparingInt(TableEntity::getCapacity))
                 .filter(table -> {
