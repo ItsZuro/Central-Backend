@@ -42,6 +42,11 @@ public class ReviewService {
         return mapToResponse(review);
     }
 
+    public List<ReviewResponse> getReviewsByProduct(Long productId) {
+        return reviewRepository.findByProduct_Id(productId).stream()
+                .map(this::mapToResponse).toList();
+    }
+
     public List<ReviewResponse> getReviewsByCustomer(Long customerId) {
         return reviewRepository.findByCustomerId(customerId)
                 .stream()
