@@ -91,8 +91,6 @@ public class NiubizService {
     // 2. Crear Sesión (API v2)
     public NiubizDTO.PaymentStartResponse createPaymentSession(BigDecimal amount, String purchaseNumber) {
         String token = getSecurityToken();
-        log.info("Token Seguridad obtenido: {}...",
-                (token != null && token.length() > 10) ? token.substring(0, 10) : "null");
 
         HttpHeaders headers = new HttpHeaders();
         // Niubiz V2 (Sandbox) espera el token CRUDO en el header Authorization
@@ -132,7 +130,7 @@ public class NiubizService {
             }
 
             // CAMBIO AQUÍ: Usamos getSessionKey()
-            log.info("Sesión creada OK. Key: {}", response.getBody().getSessionKey());
+            log.info("Sesión de pago Niubiz creada correctamente.");
 
             return NiubizDTO.PaymentStartResponse.builder()
                     .sessionKey(response.getBody().getSessionKey()) // <--- AQUÍ EL CAMBIO
