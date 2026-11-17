@@ -158,6 +158,32 @@ public class OrderService {
                 return mapToResponse(order, lang);
         }
 
+        @Transactional(readOnly = true)
+        public List<OrderResponse> getAssignedDeliveries(User user, String lang) {
+                Employee employee = employeeRepository.findByUserId(user.getId())
+                        .orElseThrow(() -> new AccessDeniedException("No existe empleado asociado al usuario."));
+                return orderRepository.findByEmployee_IdAndType_Code(employee.getId(), "DELIVERY")
+                        .stream().map(order -> mapToResponse(order, lang)).toList();
+        }
+
+        @Transactional
+        public OrderResponse updateAssignedDeliveryStatus(Long id, String newCode, User user, String lang) {
+                Order order = orderRepository.findById(id)
+                        .orElseThrow(() -> new EntityNotFoundException("Pedido no encontrado."));
+                if (order.getEmployee() == null || order.getType() == null
+                        || !"DELIVERY".equalsIgnoreCase(order.getType().getCode())
+                        || !order.getEmployee().getUser().getId().equals(user.getId())) {
+                        throw new AccessDeniedException("El pedido no está asignado a este repartidor.");
+                }
+                String current = order.getStatus().getCode();
+                boolean allowed = ("READY_FOR_PICKUP".equals(current) && "OUT_FOR_DELIVERY".equals(newCode))
+                        || ("OUT_FOR_DELIVERY".equals(current) && "DELIVERED".equals(newCode));
+                if (!allowed) throw new IllegalArgumentException("Transición de entrega no permitida.");
+                order.setStatus(statusRepository.findByCode(newCode)
+                        .orElseThrow(() -> new EntityNotFoundException("Estado de entrega inexistente.")));
+                return mapToResponse(orderRepository.save(order), lang);
+        }
+
         public List<OrderResponse> getOrdersForCurrentUser(User user, String lang) {
                 Customer customer = customerRepository.findByUserId(user.getId())
                                 .orElseThrow(() -> new EntityNotFoundException(
