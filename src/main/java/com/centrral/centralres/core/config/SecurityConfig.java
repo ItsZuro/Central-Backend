@@ -50,7 +50,7 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(request -> {
                     var corsConfig = new CorsConfiguration();
                     corsConfig.setAllowedOrigins(allowedOrigins);
-                    corsConfig.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+                    corsConfig.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
                     corsConfig.setAllowedHeaders(List.of("*"));
                     corsConfig.setAllowCredentials(true);
                     return corsConfig;
@@ -99,7 +99,12 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/addresses/**")
                         .hasAnyRole("CLIENT", "ADMIN", "WAITER", "CASHIER", "MANAGER")
 
-                        .requestMatchers("/api/v1/reservations/**").hasAnyRole("CLIENT", "WAITER", "ADMIN", "MANAGER")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/tables/available", "/api/v1/tables/available-times",
+                                "/api/v1/tables/optimal", "/api/v1/tables/*/availability").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/reservations/me").hasRole("CLIENT")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/reservations/me").hasRole("CLIENT")
+                        .requestMatchers(HttpMethod.PATCH, "/api/v1/reservations/me/*/cancel").hasRole("CLIENT")
+                        .requestMatchers("/api/v1/reservations/**").hasAnyRole("WAITER", "ADMIN", "MANAGER")
                         .requestMatchers("/api/v1/orders/**")
                         .hasAnyRole("CLIENT", "WAITER", "CHEF", "CASHIER", "ADMIN", "MANAGER")
 

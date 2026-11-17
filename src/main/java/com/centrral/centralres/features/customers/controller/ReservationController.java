@@ -87,6 +87,12 @@ public class ReservationController {
         return ResponseEntity.ok(reservationService.createReservationForAuthenticatedUser(dto));
     }
 
+    @PatchMapping("/me/{id}/cancel")
+    public ResponseEntity<ApiResponse<ReservationResponse>> cancelMyReservation(@PathVariable Long id) {
+        return ResponseEntity.ok(new ApiResponse<>(true, "Reserva cancelada correctamente",
+                reservationService.cancelReservationForAuthenticatedUser(id)));
+    }
+
     @PostMapping("/walkin/manual")
     public ResponseEntity<ApiResponse<ReservationResponse>> createWalkInReservation(
             @RequestParam Long customerId,

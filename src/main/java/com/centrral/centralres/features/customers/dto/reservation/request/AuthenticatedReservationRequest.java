@@ -3,7 +3,6 @@ package com.centrral.centralres.features.customers.dto.reservation.request;
 import java.time.LocalDate;
 import java.time.LocalTime;
 
-import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -34,7 +33,6 @@ public class AuthenticatedReservationRequest implements BaseReservationRequest {
     private String contactPhone;
 
     @NotNull(message = "Fecha de reserva es obligatoria")
-    @FutureOrPresent(message = "La fecha de reserva no puede ser en el pasado")
     private LocalDate reservationDate;
 
     @NotNull(message = "Hora de reserva es obligatoria")
