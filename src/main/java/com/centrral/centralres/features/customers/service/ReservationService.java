@@ -393,8 +393,8 @@ public class ReservationService {
         reservationRepository.save(reservation);
         publishReservationNotification(reservation, "cancelada");
 
-        // A booking in the future does not occupy the physical table. Cancelling it
-        // must not reset the status of a table occupied by a walk-in/customer.
+        // A future booking does not occupy the physical table; preserve its real status.
+        TableEntity table = reservation.getTable();
 
         log.info("❌ Reserva cancelada: id={}, cliente={}, mesa={}, fecha={}, hora={}",
                 reservation.getId(), reservation.getCustomer().getId(), table.getCode(),
