@@ -41,7 +41,7 @@ public class PaymentController {
         @Value("${app.frontend.url}")
         private String frontendUrl;
 
-        @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_CASHIER')")
+        @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'CASHIER')")
         @GetMapping
         public ResponseEntity<ApiResponse<List<PaymentResponse>>> getAll(
                         @RequestParam(required = false) Long customerId,
@@ -54,7 +54,7 @@ public class PaymentController {
                                 new ApiResponse<>(true, "Lista de pagos", payments));
         }
 
-        @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_CASHIER')")
+        @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'CASHIER')")
         @GetMapping("/{id}")
         public ResponseEntity<ApiResponse<PaymentResponse>> getById(@PathVariable Long id) {
                 return ResponseEntity.ok(
@@ -90,7 +90,7 @@ public class PaymentController {
                 response.sendRedirect(redirectUrl);
         }
 
-        @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_CASHIER')")
+        @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'CASHIER')")
         @PutMapping("/{id}")
         public ResponseEntity<ApiResponse<PaymentResponse>> update(
                         @PathVariable Long id,
@@ -100,7 +100,7 @@ public class PaymentController {
                                 new ApiResponse<>(true, "Pago actualizado", response));
         }
 
-        @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_CASHIER')")
+        @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'CASHIER')")
         @DeleteMapping("/{id}")
         public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
                 paymentService.delete(id);
