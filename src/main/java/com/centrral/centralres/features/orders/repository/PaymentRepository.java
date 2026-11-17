@@ -12,6 +12,9 @@ import com.centrral.centralres.features.orders.model.Payment;
 
 public interface PaymentRepository extends JpaRepository<Payment, Long>, JpaSpecificationExecutor<Payment> {
 
+    boolean existsByOrder_IdAndStatus(Long orderId, com.centrral.centralres.features.orders.enums.PaymentStatus status);
+
+
     List<Payment> findAllByOrder_EmployeeAndOrder_DateAfter(Employee employee, LocalDateTime startTime);
 
     // Cambia 'p.paymentMethod.name' por 'p.paymentMethod.code'
