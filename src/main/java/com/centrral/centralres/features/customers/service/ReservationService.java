@@ -393,10 +393,8 @@ public class ReservationService {
         reservationRepository.save(reservation);
         publishReservationNotification(reservation, "cancelada");
 
-        // Liberar mesa
-        TableEntity table = reservation.getTable();
-        table.setStatus(TableStatus.FREE);
-        tableRepository.save(table);
+        // A booking in the future does not occupy the physical table. Cancelling it
+        // must not reset the status of a table occupied by a walk-in/customer.
 
         log.info("❌ Reserva cancelada: id={}, cliente={}, mesa={}, fecha={}, hora={}",
                 reservation.getId(), reservation.getCustomer().getId(), table.getCode(),
