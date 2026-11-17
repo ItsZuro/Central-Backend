@@ -3,6 +3,7 @@ package com.centrral.centralres.features.customers.controller;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -37,6 +38,13 @@ public class ReviewController {
         return ResponseEntity.ok(new ApiResponse<>(true, "Reseña obtenida correctamente", review));
     }
 
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/product/{productId}")
+    public ResponseEntity<ApiResponse<List<ReviewResponse>>> getProductReviews(@PathVariable Long productId) {
+        return ResponseEntity.ok(new ApiResponse<>(true, "Reseñas del producto",
+                reviewService.getReviewsByProduct(productId)));
+    }
+
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<List<ReviewResponse>>> getMeReviews(
             @AuthenticationPrincipal User user) {
@@ -50,6 +58,7 @@ public class ReviewController {
         return ResponseEntity.ok(new ApiResponse<>(true, "Reseñas del cliente obtenidas correctamente", reviews));
     }
 
+    @PreAuthorize("isAuthenticated()")
     @GetMapping("/check")
     public ResponseEntity<ApiResponse<Boolean>> checkIfReviewed(
             @AuthenticationPrincipal User user,
@@ -61,6 +70,7 @@ public class ReviewController {
         return ResponseEntity.ok(new ApiResponse<>(true, "Verificación completada", exists));
     }
 
+    @PreAuthorize("isAuthenticated()")
     @PostMapping
     public ResponseEntity<ApiResponse<ReviewResponse>> createReview(@Valid @RequestBody ReviewRequest dto,
             @AuthenticationPrincipal User user) {
@@ -68,6 +78,7 @@ public class ReviewController {
         return new ResponseEntity<>(new ApiResponse<>(true, "Reseña creada correctamente", review), HttpStatus.CREATED);
     }
 
+    @PreAuthorize("isAuthenticated()")
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<ReviewResponse>> updateReview(
             @PathVariable Long id,
@@ -77,6 +88,7 @@ public class ReviewController {
         return ResponseEntity.ok(new ApiResponse<>(true, "Reseña actualizada correctamente", review));
     }
 
+    @PreAuthorize("isAuthenticated()")
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> deleteReview(@PathVariable Long id, @AuthenticationPrincipal User user) {
         reviewService.deleteReview(id, user);
