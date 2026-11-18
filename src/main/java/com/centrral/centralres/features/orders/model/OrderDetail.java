@@ -46,4 +46,10 @@ public class OrderDetail {
     @Column(name = "unit_price", precision = 10, scale = 2, nullable = false)
     private BigDecimal unitPrice;
 
+    @Column(name = "selected_extras", length = 1000)
+    private String selectedExtras;
+
+    @Column(name = "notes", length = 1000)
+    private String notes;
+
 }
