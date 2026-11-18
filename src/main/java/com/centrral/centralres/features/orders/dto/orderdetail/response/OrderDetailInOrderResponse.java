@@ -14,4 +14,6 @@ public class OrderDetailInOrderResponse {
     private String productImageUrl;
     private Integer quantity;
     private BigDecimal unitPrice;
+    private String selectedExtras;
+    private String notes;
 }
