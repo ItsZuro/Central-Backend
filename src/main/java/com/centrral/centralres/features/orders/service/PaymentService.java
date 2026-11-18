@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.UUID;
 
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.access.AccessDeniedException;
+import com.centrral.centralres.core.security.model.User;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -62,7 +64,7 @@ public class PaymentService {
         }
 
         @Transactional(readOnly = true)
-        public NiubizDTO.PaymentStartResponse startOnlinePayment(PaymentStartRequest request) {
+        public NiubizDTO.PaymentStartResponse startOnlinePayment(PaymentStartRequest request, User user) {
 
                 log.info("Iniciando sesión de pago Niubiz para orderId: {}", request.getOrderId());
 
@@ -70,6 +72,7 @@ public class PaymentService {
                                 .orElseThrow(() -> new EntityNotFoundException(
                                                 "Orden no encontrada: " + request.getOrderId()));
 
+                assertPaymentOwnerOrStaff(order, user);
                 validateOrderForPayment(order);
                 requireMatchingAmount(order, request.getAmount());
                 rejectAlreadyPaid(order);
@@ -105,7 +108,7 @@ public class PaymentService {
         }
 
         @Transactional
-        public PaymentResponse confirmOnlinePayment(NiubizDTO.PaymentConfirmRequest request) {
+        public PaymentResponse confirmOnlinePayment(NiubizDTO.PaymentConfirmRequest request, User user) {
 
                 log.info("Confirmando pago Niubiz");
 
@@ -201,6 +204,20 @@ public class PaymentService {
 
                 payment.setStatus(PaymentStatus.CANCELLED);
                 paymentRepository.save(payment);
+        }
+
+        private void assertPaymentOwnerOrStaff(Order order, User user) {
+                if (user == null) throw new AccessDeniedException("Inicia sesión para pagar.");
+                boolean staff = user.getRoles() != null && user.getRoles().stream()
+                        .anyMatch(role -> "ROLE_ADMIN".equals(role.getName())
+                                || "ROLE_MANAGER".equals(role.getName())
+                                || "ROLE_CASHIER".equals(role.getName()));
+                boolean owner = order.getCustomer() != null
+                        && order.getCustomer().getUser() != null
+                        && user.getId().equals(order.getCustomer().getUser().getId());
+                if (!owner && !staff) {
+                        throw new AccessDeniedException("El pedido no pertenece a tu cuenta.");
+                }
         }
 
         private void requireMatchingAmount(Order order, BigDecimal requestedAmount) {
