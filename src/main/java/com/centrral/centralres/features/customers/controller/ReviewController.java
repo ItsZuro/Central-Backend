@@ -38,13 +38,13 @@ public class ReviewController {
         return ResponseEntity.ok(new ApiResponse<>(true, "Reseña obtenida correctamente", review));
     }
 
-    @PreAuthorize("isAuthenticated()")
     @GetMapping("/product/{productId}")
     public ResponseEntity<ApiResponse<List<ReviewResponse>>> getProductReviews(@PathVariable Long productId) {
         return ResponseEntity.ok(new ApiResponse<>(true, "Reseñas del producto",
                 reviewService.getReviewsByProduct(productId)));
     }
 
+    @PreAuthorize("isAuthenticated()")
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<List<ReviewResponse>>> getMeReviews(
             @AuthenticationPrincipal User user) {
