@@ -51,6 +51,7 @@ import com.centrral.centralres.features.products.model.Inventory;
 import com.centrral.centralres.features.products.model.InventoryMovement;
 import com.centrral.centralres.features.products.model.Product;
 import com.centrral.centralres.features.products.model.ProductIngredient;
+import com.centrral.centralres.features.products.model.ProductExtra;
 import com.centrral.centralres.features.products.repository.InventoryMovementRepository;
 import com.centrral.centralres.features.products.repository.InventoryRepository;
 import com.centrral.centralres.features.products.repository.ProductRepository;
@@ -234,7 +235,7 @@ public class OrderService {
                                         .orElseThrow(() -> new EntityNotFoundException(
                                                         "Producto no encontrado: " + d.getProductId()));
 
-                        BigDecimal basePrice = product.getPrice();
+                        BigDecimal basePrice = unitPriceWithExtras(product, d);
                         BigDecimal taxRate = taxConfig.getRate();
                         BigDecimal priceWithTax = basePrice.multiply(BigDecimal.ONE.add(taxRate));
 
@@ -251,6 +252,8 @@ public class OrderService {
                                         .product(product)
                                         .quantity(d.getQuantity())
                                         .unitPrice(priceWithTax)
+                                        .selectedExtras(extraNames(product, d))
+                                        .notes(d.getNotes())
                                         .build();
 
                         // Descontar inventario (Reserva temporal, si no paga se debería revertir por un
@@ -329,7 +332,7 @@ public class OrderService {
                                         .orElseThrow(() -> new EntityNotFoundException(
                                                         "Producto no encontrado con id: " + d.getProductId()));
 
-                        BigDecimal basePrice = product.getPrice();
+                        BigDecimal basePrice = unitPriceWithExtras(product, d);
                         if (basePrice == null) {
                                 throw new IllegalStateException(
                                                 "El producto con id " + product.getId() + " no tiene precio asignado.");
@@ -796,6 +799,8 @@ public class OrderService {
                                                                 .productImageUrl(d.getProduct().getImageUrl())
                                                                 .quantity(d.getQuantity())
                                                                 .unitPrice(d.getUnitPrice())
+                                                                .selectedExtras(d.getSelectedExtras())
+                                                                .notes(d.getNotes())
                                                                 .build())
                                                 .toList())
                                 .estimatedTime(order.getEstimatedTime())
@@ -866,6 +871,34 @@ public class OrderService {
                                 .map(OrderTypeTranslation::getName)
                                 .findFirst()
                                 .orElse("Sin nombre");
+        }
+
+        private List<ProductExtra> selectedExtras(Product product, OrderDetailInOrderRequest request) {
+                if (request.getExtraIds() == null || request.getExtraIds().isEmpty()) return List.of();
+                Set<Long> unique = new LinkedHashSet<>(request.getExtraIds());
+                if (unique.size() != request.getExtraIds().size()) {
+                        throw new IllegalArgumentException("No se puede repetir un adicional en un mismo producto.");
+                }
+                return unique.stream().map(id -> product.getExtras().stream()
+                        .filter(extra -> id != null && id.equals(extra.getId()) && extra.isActive())
+                        .findFirst()
+                        .orElseThrow(() -> new IllegalArgumentException(
+                                "Adicional no disponible para el producto " + product.getId())))
+                        .toList();
+        }
+
+        private BigDecimal unitPriceWithExtras(Product product, OrderDetailInOrderRequest request) {
+                if (product.getPrice() == null) {
+                        throw new IllegalStateException("Producto sin precio: " + product.getId());
+                }
+                return selectedExtras(product, request).stream()
+                        .map(ProductExtra::getPrice)
+                        .reduce(product.getPrice(), BigDecimal::add);
+        }
+
+        private String extraNames(Product product, OrderDetailInOrderRequest request) {
+                return selectedExtras(product, request).stream()
+                        .map(ProductExtra::getName).collect(Collectors.joining(", "));
         }
 
         private boolean isOnlinePaymentMethod(Long paymentMethodId) {
