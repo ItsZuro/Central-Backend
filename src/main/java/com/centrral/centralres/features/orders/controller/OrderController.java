@@ -83,7 +83,9 @@ public class OrderController {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<OrderResponse>> getById(
             @PathVariable Long id,
-            @RequestHeader(name = "Accept-Language", defaultValue = "es") String lang) {
+            @RequestHeader(name = "Accept-Language", defaultValue = "es") String lang,
+            @AuthenticationPrincipal User user) {
+        orderService.verifyOrderVisibility(id, user);
         OrderResponse order = orderService.getById(id, lang);
         return ResponseEntity.ok(new ApiResponse<>(true, "Orden obtenida correctamente", order));
     }
@@ -92,7 +94,9 @@ public class OrderController {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<OrderResponse>> trackOrder(
             @PathVariable Long id,
-            @RequestHeader(name = "Accept-Language", defaultValue = "es") String lang) {
+            @RequestHeader(name = "Accept-Language", defaultValue = "es") String lang,
+            @AuthenticationPrincipal User user) {
+        orderService.verifyOrderVisibility(id, user);
         OrderResponse trackingInfo = orderService.getTrackingInfo(id, lang);
         return ResponseEntity
                 .ok(new ApiResponse<>(true, "Seguimiento de la orden obtenido correctamente", trackingInfo));
