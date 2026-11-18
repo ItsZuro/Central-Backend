@@ -71,7 +71,7 @@ public class OrderController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_WAITER', 'ROLE_CHEF', 'ROLE_CASHIER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'WAITER', 'CHEF', 'CASHIER')")
     public ResponseEntity<ApiResponse<List<OrderResponse>>> getAll(
             @RequestHeader(name = "Accept-Language", defaultValue = "es") String lang,
             @RequestParam(name = "type", required = false) String typeCode) {
@@ -109,7 +109,7 @@ public class OrderController {
     }
 
     @GetMapping("/{id}/download-invoice")
-    @PreAuthorize("hasAnyRole('ROLE_CASHIER', 'ROLE_ADMIN', 'ROLE_MANAGER')")
+    @PreAuthorize("hasAnyRole('CASHIER', 'ADMIN', 'MANAGER')")
 
     public ResponseEntity<byte[]> downloadInvoice(@PathVariable Long id) {
 
@@ -136,7 +136,7 @@ public class OrderController {
     }
 
     @PostMapping("/pos/sale")
-    @PreAuthorize("hasAnyRole('ROLE_CASHIER', 'ROLE_ADMIN', 'ROLE_WAITER', 'ROLE_MANAGER')")
+    @PreAuthorize("hasAnyRole('CASHIER', 'ADMIN', 'WAITER', 'MANAGER')")
     public ResponseEntity<ApiResponse<OrderResponse>> createPosSale(
             @Valid @RequestBody OrderRequest request,
             @RequestHeader(name = "Accept-Language", defaultValue = "es") String lang,
@@ -147,7 +147,7 @@ public class OrderController {
     }
 
     @PostMapping("/{id}/payments/local")
-    @PreAuthorize("hasAnyRole('ROLE_CASHIER', 'ROLE_ADMIN', 'ROLE_MANAGER')")
+    @PreAuthorize("hasAnyRole('CASHIER', 'ADMIN', 'MANAGER')")
     public ResponseEntity<ApiResponse<Void>> addLocalPayment(
             @PathVariable Long id,
             @Valid @RequestBody PaymentInOrderRequest request) {
@@ -156,7 +156,7 @@ public class OrderController {
     }
 
     @PostMapping("/{id}/location")
-    @PreAuthorize("hasAnyRole('ROLE_WAITER', 'ROLE_MANAGER', 'ROLE_ADMIN')")
+    @PreAuthorize("hasAnyRole('WAITER', 'MANAGER', 'ADMIN')")
     public ResponseEntity<ApiResponse<Void>> updateLocation(
             @PathVariable Long id,
             @Valid @RequestBody UpdateLocationRequest request,
@@ -166,7 +166,7 @@ public class OrderController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_WAITER', 'ROLE_CASHIER', 'ROLE_CHEF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'WAITER', 'CASHIER', 'CHEF')")
     public ResponseEntity<ApiResponse<OrderResponse>> update(
             @PathVariable Long id,
             @Valid @RequestBody OrderRequest request,
@@ -186,7 +186,7 @@ public class OrderController {
     }
 
     @PutMapping("/{id}/status")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_WAITER', 'ROLE_CHEF', 'ROLE_CASHIER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'WAITER', 'CHEF', 'CASHIER')")
     public ResponseEntity<ApiResponse<OrderResponse>> updateStatus(
             @PathVariable Long id,
             @Valid @RequestBody UpdateStatusRequest request,
@@ -197,7 +197,7 @@ public class OrderController {
     }
 
     @PutMapping("/{id}/assign-driver")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<ApiResponse<OrderResponse>> assignDriver(
             @PathVariable Long id,
             @Valid @RequestBody AssignDriverRequest request,
@@ -208,7 +208,7 @@ public class OrderController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
 
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
         orderService.delete(id);
