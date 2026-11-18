@@ -16,7 +16,8 @@ spring:
 
 app:
   demo:
-    seed-tables: ${APP_DEMO_SEED_TABLES:false}
+    seed-users: false
+    seed-tables: false
   frontend:
     url: ${APP_FRONTEND_URL}
   cors:
