@@ -7,6 +7,8 @@ import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import com.centrral.centralres.core.security.model.User;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -64,18 +66,20 @@ public class PaymentController {
         @PreAuthorize("isAuthenticated()")
         @PostMapping("/niubiz/start")
         public ResponseEntity<ApiResponse<NiubizDTO.PaymentStartResponse>> startNiubizPayment(
-                        @RequestBody @Valid PaymentStartRequest request) {
+                        @RequestBody @Valid PaymentStartRequest request,
+                        @AuthenticationPrincipal User user) {
 
-                NiubizDTO.PaymentStartResponse response = paymentService.startOnlinePayment(request);
+                NiubizDTO.PaymentStartResponse response = paymentService.startOnlinePayment(request, user);
                 return ResponseEntity.ok(new ApiResponse<>(true, "Sesión de Niubiz iniciada", response));
         }
 
         @PreAuthorize("isAuthenticated()")
         @PostMapping("/niubiz/confirm")
         public ResponseEntity<ApiResponse<PaymentResponse>> confirmNiubizPayment(
-                        @RequestBody @Valid NiubizDTO.PaymentConfirmRequest request) {
+                        @RequestBody @Valid NiubizDTO.PaymentConfirmRequest request,
+                        @AuthenticationPrincipal User user) {
 
-                PaymentResponse response = paymentService.confirmOnlinePayment(request);
+                PaymentResponse response = paymentService.confirmOnlinePayment(request, user);
                 return ResponseEntity.ok(new ApiResponse<>(true, "Pago con Niubiz confirmado", response));
         }
 
