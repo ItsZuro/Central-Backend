@@ -5,6 +5,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -31,9 +32,16 @@ public class SecurityInitializer implements CommandLineRunner {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
+    @Value("${app.demo.seed-users:false}")
+    private boolean demoUsersEnabled;
+
     @Override
     public void run(String... args) throws Exception {
         initRoles();
+        if (!demoUsersEnabled) {
+            log.info("Datos de prueba desactivados: no se crearán cuentas conocidas en este perfil.");
+            return;
+        }
         initAdminUser();
         initBaseEmployeeUsers();
         initSupplierUsers();
@@ -42,10 +50,6 @@ public class SecurityInitializer implements CommandLineRunner {
     }
 
     private void initRoles() {
-        if (roleRepository.count() > 0) {
-            log.info(">>> Roles ya inicializados.");
-            return;
-        }
         log.info(">>> Inicializando Roles...");
         String[] roles = { "ROLE_CLIENT", "ROLE_WAITER", "ROLE_CHEF", "ROLE_CASHIER", "ROLE_ADMIN", "ROLE_SUPPLIER",
                 "ROLE_MANAGER" };
