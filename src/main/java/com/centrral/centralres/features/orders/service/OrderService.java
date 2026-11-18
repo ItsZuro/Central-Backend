@@ -365,6 +365,8 @@ public class OrderService {
                                         .product(product)
                                         .quantity(d.getQuantity())
                                         .unitPrice(priceWithTax)
+                                        .selectedExtras(extraNames(product, d))
+                                        .notes(d.getNotes())
                                         .build();
 
                         applyInventoryMovement(product, d.getQuantity(), false, order.getId(), "Creación de orden");
@@ -428,12 +430,16 @@ public class OrderService {
                         Product product = productRepository.findById(d.getProductId())
                                         .orElseThrow(() -> new EntityNotFoundException(
                                                         "Producto no encontrado con id: " + d.getProductId()));
-                        BigDecimal priceWithTax = product.getPrice().multiply(BigDecimal.ONE.add(taxConfig.getRate()));
+                        BigDecimal priceWithTax = unitPriceWithExtras(product, d)
+                                        .multiply(BigDecimal.ONE.add(taxConfig.getRate()))
+                                        .setScale(2, RoundingMode.HALF_UP);
                         OrderDetail detail = OrderDetail.builder()
                                         .order(order)
                                         .product(product)
                                         .quantity(d.getQuantity())
                                         .unitPrice(priceWithTax)
+                                        .selectedExtras(extraNames(product, d))
+                                        .notes(d.getNotes())
                                         .build();
 
                         applyInventoryMovement(product, d.getQuantity(), false, order.getId(),
