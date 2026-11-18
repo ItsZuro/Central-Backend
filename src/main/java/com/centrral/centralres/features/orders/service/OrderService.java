@@ -1,6 +1,7 @@
 package com.centrral.centralres.features.orders.service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -237,7 +238,8 @@ public class OrderService {
 
                         BigDecimal basePrice = unitPriceWithExtras(product, d);
                         BigDecimal taxRate = taxConfig.getRate();
-                        BigDecimal priceWithTax = basePrice.multiply(BigDecimal.ONE.add(taxRate));
+                        BigDecimal priceWithTax = basePrice.multiply(BigDecimal.ONE.add(taxRate))
+                                .setScale(2, RoundingMode.HALF_UP);
 
                         // Validar cantidad
                         if (d.getQuantity() == null || d.getQuantity() <= 0) {
@@ -343,7 +345,8 @@ public class OrderService {
                                 throw new IllegalStateException("No está configurada la tasa de impuestos.");
                         }
 
-                        BigDecimal priceWithTax = basePrice.multiply(BigDecimal.ONE.add(taxRate));
+                        BigDecimal priceWithTax = basePrice.multiply(BigDecimal.ONE.add(taxRate))
+                                .setScale(2, RoundingMode.HALF_UP);
                         BigDecimal safeQuantity = d.getQuantity() != null ? BigDecimal.valueOf(d.getQuantity())
                                         : BigDecimal.ZERO;
 
