@@ -18,7 +18,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Component
-@Profile({ "dev", "prod" })
+@Profile("dev")
 @RequiredArgsConstructor
 @Slf4j
 @Order(8)
