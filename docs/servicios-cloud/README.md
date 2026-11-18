@@ -48,3 +48,11 @@ Vercel → ALB HTTPS → ECS Fargate (Spring Boot) → RDS PostgreSQL (privado);
 3. Mantener secretos fuera de Docker, Vercel y Git; en AWS configurar `SPRING_PROFILES_ACTIVE=prod`, CORS exacto, conectividad RDS, rol IAM para S3 y acceso TLS ALB. No activar ninguna pasarela de producción.
 4. Verificar los límites de reserva, roles y pedidos con dos sesiones distintas y PostgreSQL real. La compilación de GitHub Actions **no** sustituye pruebas funcionales end-to-end ni prueba resiliencia Multi-AZ.
 5. Para evidencia de Servicios Cloud, utilizar Docker Compose, health checks, diagramas y simulación de falla/crecimiento. No afirmar que ALB, ECS, RDS o Multi-AZ están implementados sin capturas reales.
+
+## Cuentas de desarrollo y seguridad en producción
+
+Con `SPRING_PROFILES_ACTIVE=dev` y `app.demo.seed-users=true` se crean cuentas de demostración en una base de datos de desarrollo; si ya existen, sus contraseñas no se sobreescriben. No utilizar estas credenciales en Internet.
+
+Con `SPRING_PROFILES_ACTIVE=prod`, el inicializador de seguridad registra los roles requeridos, pero **no crea usuarios de prueba ni credenciales estáticas**. Los demás inicializadores académicos (empleados, clientes, productos, proveedores, pedidos, mesas y recompensas) se limitan a `dev`. Crear el administrador inicial en producción mediante un procedimiento seguro y credenciales únicas; no habilitar seeds académicos en RDS. Bases existentes que ya contengan cuentas de prueba requieren limpieza/rotación antes de exposición.
+
+Roles inicializados: `ROLE_CLIENT`, `ROLE_WAITER`, `ROLE_CHEF`, `ROLE_CASHIER`, `ROLE_ADMIN`, `ROLE_SUPPLIER`, `ROLE_MANAGER`. Demo: `admin`, `cliente1`, `cliente2`, `jose_m`, `maria_w`, `carlos_c`, `sanfernando_user`, `gloria_user`. No existe cuenta de cajero independiente predefinida; el gerente incorpora `ROLE_CASHIER`.
