@@ -104,6 +104,20 @@ public class OrderService {
                                 .toList();
         }
 
+        public void verifyOrderVisibility(Long id, User user) {
+                if (user == null) throw new AccessDeniedException("Usuario no autenticado.");
+                Order order = orderRepository.findById(id)
+                        .orElseThrow(() -> new EntityNotFoundException("Orden no encontrada."));
+                boolean isStaff = user.getRoles() != null && user.getRoles().stream()
+                        .anyMatch(r -> Set.of("ROLE_ADMIN", "ROLE_MANAGER", "ROLE_CASHIER",
+                                "ROLE_CHEF", "ROLE_WAITER").contains(r.getName()));
+                boolean isOwner = order.getCustomer() != null && order.getCustomer().getUser() != null
+                        && user.getId().equals(order.getCustomer().getUser().getId());
+                if (!isStaff && !isOwner) {
+                        throw new AccessDeniedException("No tienes permiso para consultar este pedido.");
+                }
+        }
+
         public OrderResponse getById(Long id, String lang) {
                 Order order = orderRepository.findById(id)
                                 .orElseThrow(() -> new EntityNotFoundException("Orden no encontrada con id: " + id));
