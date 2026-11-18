@@ -565,6 +565,16 @@ public class OrderService {
                         throw new IllegalStateException("La orden ya se encuentra cancelada.");
                 }
 
+                String currentStatus = order.getStatus().getCode();
+                if (Set.of("COMPLETED", "DELIVERED", "OUT_FOR_DELIVERY").contains(currentStatus)) {
+                        throw new IllegalStateException("No es posible cancelar un pedido ya despachado o finalizado.");
+                }
+                if (order.getPayments() != null && order.getPayments().stream()
+                                .anyMatch(payment -> payment.getStatus()
+                                                == com.centrral.centralres.features.orders.enums.PaymentStatus.CONFIRMED)) {
+                        throw new IllegalStateException("La orden ya tiene un pago confirmado; requiere gestión de devolución.");
+                }
+
                 boolean isOwner = order.getCustomer() != null
                                 && order.getCustomer().getUser() != null
                                 && order.getCustomer().getUser().getId().equals(user.getId());
@@ -574,6 +584,10 @@ public class OrderService {
 
                 if (!isOwner && !isAdmin) {
                         throw new SecurityException("El usuario no está autorizado para cancelar esta orden.");
+                }
+
+                if (!isAdmin && !Set.of("PENDING", "PENDING_CONFIRMATION").contains(currentStatus)) {
+                        throw new IllegalStateException("Solo se pueden cancelar pedidos pendientes desde la cuenta del cliente.");
                 }
 
                 OrderStatus cancelledStatus = statusRepository.findByCode("CANCELLED")
