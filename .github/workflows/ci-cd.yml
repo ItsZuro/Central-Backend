@@ -85,6 +85,27 @@ jobs:
           http://localhost:8081/api/v1/products
           --output /dev/null
 
+      - name: Verificar API pública y protección de rutas privadas
+        run: |
+          set -euo pipefail
+          BASE=http://localhost:8081/api/v1
+          curl --fail --silent --show-error "$BASE/reviews/product/1" --output /dev/null
+          curl --fail --silent --show-error "$BASE/tables/available-times?numberOfPeople=2&date=2030-05-02" --output /dev/null
+          for path in "/orders/me" "/orders/delivery/assigned-me" "/payments" "/orders/delivery/quote?latitude=-14&longitude=-75"; do
+            status=$(curl --silent --output /dev/null --write-out '%{http_code}' "$BASE$path")
+            if [ "$status" != "401" ] && [ "$status" != "403" ]; then
+              echo "Se esperaba autenticación para $path (HTTP $status)" >&2
+              exit 1
+            fi
+          done
+          for path in "/reservations/me" "/payments/niubiz/start"; do
+            status=$(curl --silent --output /dev/null --write-out '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{}' "$BASE$path")
+            if [ "$status" != "401" ] && [ "$status" != "403" ]; then
+              echo "Se esperaba autenticación para $path (HTTP $status)" >&2
+              exit 1
+            fi
+          done
+
       - name: Mostrar servicios validados
         run: docker compose ps
 
