@@ -220,6 +220,10 @@ public class OrderService {
 
                 // 1. Construir base de la orden
                 Order order = buildOrderBase(request, customer);
+                // Los clientes no pueden decidir el estado ni asignarse empleados.
+                order.setStatus(statusRepository.findByCode("PENDING")
+                                .orElseThrow(() -> new EntityNotFoundException("Estado inicial PENDING inexistente.")));
+                order.setEmployee(null);
 
                 // 2. Calcular Totales y Detalles
                 BigDecimal total = BigDecimal.ZERO;
@@ -283,6 +287,8 @@ public class OrderService {
                                         // No creamos el payment entity aquí. El frontend iniciará el flujo con el ID de
                                         // la orden.
                                 } else {
+                                        // El servidor calcula el importe, no el navegador.
+                                        p.setAmount(savedOrder.getTotal());
                                         paymentService.createInOrder(savedOrder, p);
                                 }
                         }
