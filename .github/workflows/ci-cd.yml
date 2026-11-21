@@ -132,3 +132,40 @@ jobs:
         if: always()
         continue-on-error: true
         run: docker compose down --volumes --remove-orphans
+
+ecr-publish:
+    name: Publicar imagen validada en Amazon ECR
+    needs: container
+    if: github.event_name == 'push' && github.ref == 'refs/heads/feature/cloud-final-project'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@v7
+
+      - name: Obtener credenciales AWS temporales mediante GitHub OIDC
+        uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          role-to-assume: arn:aws:iam::431223004152:role/central-github-ecr-push-role
+          aws-region: us-east-1
+          role-session-name: restaurant-central-ecr-${{ github.run_id }}
+
+      - name: Autenticarse en Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # El repositorio ECR tiene etiquetas inmutables: no usar 'latest'.
+      # El identificador de intento evita colisiones también al reejecutar un workflow.
+      - name: Construir y publicar imagen Docker
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.ecr-login.outputs.registry }}/central-backend:${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Mostrar referencia publicada
+        run: echo "Imagen publicada en ECR con etiqueta $GITHUB_SHA-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
