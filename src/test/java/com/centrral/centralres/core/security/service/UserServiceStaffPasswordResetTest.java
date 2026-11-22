@@ -19,6 +19,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import com.centrral.centralres.core.aws.service.FileService;
+import com.centrral.centralres.core.exceptions.BadRequestException;
 import com.centrral.centralres.core.exceptions.InvalidPasswordException;
 import com.centrral.centralres.core.security.dto.AdminResetStaffPasswordRequest;
 import com.centrral.centralres.core.security.enums.AuthProvider;
@@ -77,6 +78,20 @@ class UserServiceStaffPasswordResetTest {
         verify(tokenBlacklistService).revokeIssuedAccessTokensForUser(
                 "mesero.central", "Restablecimiento de contraseña por administrador");
         verify(tokenBlacklistService).recordStaffPasswordReset("mesero.central");
+    }
+
+    @Test
+    void identicalStaffPasswordIsBadRequestAndNeverChangesAccount() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(admin));
+        when(userRepository.findById(2L)).thenReturn(Optional.of(waiter));
+        when(passwordEncoder.matches("admin-password", "admin-encoded")).thenReturn(true);
+        when(passwordEncoder.matches("a-new-secret-password", "old-encoded")).thenReturn(true);
+
+        assertThatThrownBy(() -> service.resetStaffPassword(admin, 2L, request))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessage("La nueva contraseña debe ser distinta de la anterior.");
+        verify(userRepository, never()).save(any(User.class));
+        verify(authService, never()).revokeAllRefreshTokens(any(User.class));
     }
 
     @Test
