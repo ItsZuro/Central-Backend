@@ -62,6 +62,21 @@ public class TokenBlacklistService {
         repository.saveAll(active);
     }
 
+    /**
+     * Revoca los tokens de acceso aún vigentes emitidos al usuario. El login
+     * registra los JWT en TokenAudit como ISSUED y el filtro comprueba su hash
+     * en la lista negra. No exponemos tokens ni contraseñas a la respuesta.
+     */
+    @Transactional
+    public void revokeIssuedAccessTokensForUser(String username, String reason) {
+        Instant now = Instant.now();
+        List<TokenAudit> issued = repository.findByUsernameAndEventTypeAndExpiresAtAfter(
+                username, TokenEventType.ISSUED, now);
+        for (TokenAudit audit : issued) {
+            blacklistToken(audit.getToken(), username, reason, audit.getExpiresAt(), null, null);
+        }
+    }
+
     private static String fingerprint(String token) {
         try {
             byte[] digest = MessageDigest.getInstance("SHA-256")
