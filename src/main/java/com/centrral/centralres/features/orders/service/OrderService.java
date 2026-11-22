@@ -118,7 +118,7 @@ public class OrderService {
                         .orElseThrow(() -> new EntityNotFoundException("Orden no encontrada."));
                 boolean isStaff = user.getRoles() != null && user.getRoles().stream()
                         .anyMatch(r -> Set.of("ROLE_ADMIN", "ROLE_MANAGER", "ROLE_CASHIER",
-                                "ROLE_CHEF", "ROLE_WAITER").contains(r.getName()));
+                                "ROLE_WAITER").contains(r.getName()));
                 boolean isOwner = order.getCustomer() != null && order.getCustomer().getUser() != null
                         && user.getId().equals(order.getCustomer().getUser().getId());
                 boolean isAssignedDriver = user.hasRole("ROLE_DRIVER")
