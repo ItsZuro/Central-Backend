@@ -162,10 +162,12 @@ public class CashRegisterService {
             ref = null;
         }
 
-        Payment payment = order.getPayments().stream()
+        Payment existingTender = order.getPayments().stream()
                 .filter(p -> p.getStatus() == PaymentStatus.PENDING
                         && p.getPaymentMethod().getId().equals(method.getId()))
-                .findFirst().orElseGet(Payment::new);
+                .findFirst().orElse(null);
+        boolean newTender = existingTender == null;
+        Payment payment = newTender ? new Payment() : existingTender;
         payment.setOrder(order);
         payment.setPaymentMethod(method);
         payment.setAmount(order.getTotal());
@@ -174,6 +176,9 @@ public class CashRegisterService {
         payment.setStatus(PaymentStatus.CONFIRMED);
         payment.setTransactionCode("CASH".equals(code) ? UUID.randomUUID().toString() : ref);
         payment = payments.save(payment);
+        if (newTender) {
+            order.getPayments().add(payment);
+        }
 
         // Existing draft tender rows no longer represent money owed once paid.
         for (Payment pending : order.getPayments()) {
