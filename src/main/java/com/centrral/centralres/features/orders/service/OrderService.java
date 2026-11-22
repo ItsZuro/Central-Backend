@@ -48,6 +48,7 @@ import com.centrral.centralres.features.orders.model.OrderStatusTranslation;
 import com.centrral.centralres.features.orders.model.OrderType;
 import com.centrral.centralres.features.orders.model.OrderTypeTranslation;
 import com.centrral.centralres.features.orders.repository.OrderRepository;
+import com.centrral.centralres.features.orders.repository.PaymentRepository;
 import com.centrral.centralres.features.orders.repository.OrderStatusRepository;
 import com.centrral.centralres.features.orders.repository.OrderTypeRepository;
 import com.centrral.centralres.features.orders.repository.PaymentMethodRepository;
@@ -97,6 +98,7 @@ public class OrderService {
         private final InvoiceGenerator invoiceGenerator;
         private final PaymentMethodRepository paymentMethodRepository;
         private final CashShiftRepository cashShiftRepository;
+        private final PaymentRepository paymentRepository;
 
         @Transactional(readOnly = true)
         public List<OrderResponse> getAll(String lang, String typeCode) {
