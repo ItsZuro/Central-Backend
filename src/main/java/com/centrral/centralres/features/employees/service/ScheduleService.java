@@ -1,6 +1,8 @@
 package com.centrral.centralres.features.employees.service;
 
 import java.time.LocalTime;
+import java.util.HashSet;
+import java.util.Set;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.List;
@@ -10,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.centrral.centralres.features.employees.dto.schedule.request.ScheduleRequest;
+import com.centrral.centralres.features.employees.dto.schedule.request.StaffShiftRequest;
 import com.centrral.centralres.features.employees.dto.schedule.response.ScheduleResponse;
 import com.centrral.centralres.features.employees.enums.DayOfWeekEnum;
 import com.centrral.centralres.features.employees.model.Employee;
@@ -85,6 +88,74 @@ public class ScheduleService {
                 Schedule schedule = scheduleRepository.findById(id)
                                 .orElseThrow(() -> new EntityNotFoundException("Horario no encontrado con id: " + id));
                 scheduleRepository.delete(schedule);
+        }
+
+        /**
+         * Devuelve los turnos del empleado asociado a una cuenta. Solo debe invocarse
+         * desde operaciones que ya validaron privilegios de administrador.
+         */
+        @Transactional(readOnly = true)
+        public List<StaffShiftRequest> getWeeklyScheduleForUser(Long userId) {
+                Employee employee = employeeRepository.findByUserId(userId)
+                                .orElseThrow(() -> new EntityNotFoundException(
+                                                "El usuario no tiene un perfil de empleado asociado."));
+                return scheduleRepository.findByEmployeeId(employee.getId()).stream()
+                                .sorted((a, b) -> a.getDayOfWeek().compareTo(b.getDayOfWeek()))
+                                .map(this::toStaffShift)
+                                .toList();
+        }
+
+        /**
+         * Reemplazo completo y atómico: los días omitidos se consideran libres.
+         * No se permiten horarios vacíos, días duplicados ni turnos nocturnos
+         * que crucen medianoche, porque la validación de login es por día.
+         */
+        @Transactional
+        public List<StaffShiftRequest> replaceWeeklyScheduleForUser(Long userId,
+                                                                     List<StaffShiftRequest> requested) {
+                if (requested == null || requested.isEmpty() || requested.size() > 7) {
+                        throw new IllegalArgumentException("Selecciona entre uno y siete días laborales.");
+                }
+                Set<DayOfWeekEnum> seenDays = new HashSet<>();
+                for (StaffShiftRequest shift : requested) {
+                        if (shift == null || shift.getDayOfWeek() == null
+                                        || shift.getStartTime() == null || shift.getEndTime() == null) {
+                                throw new IllegalArgumentException("Completa los días y las horas del horario.");
+                        }
+                        if (!seenDays.add(shift.getDayOfWeek())) {
+                                throw new IllegalArgumentException("No se puede repetir un día de la semana.");
+                        }
+                        if (!shift.getStartTime().isBefore(shift.getEndTime())) {
+                                throw new IllegalArgumentException(
+                                                "La hora de salida debe ser posterior a la de entrada en cada día.");
+                        }
+                }
+
+                Employee employee = employeeRepository.findByUserId(userId)
+                                .orElseThrow(() -> new EntityNotFoundException(
+                                                "El usuario no tiene un perfil de empleado asociado."));
+                scheduleRepository.deleteAll(scheduleRepository.findByEmployeeId(employee.getId()));
+                scheduleRepository.flush();
+
+                List<Schedule> newSchedules = requested.stream()
+                                .map(shift -> Schedule.builder()
+                                                .employee(employee)
+                                                .dayOfWeek(shift.getDayOfWeek())
+                                                .startTime(shift.getStartTime())
+                                                .endTime(shift.getEndTime())
+                                                .build())
+                                .toList();
+                scheduleRepository.saveAll(newSchedules);
+                scheduleRepository.flush();
+                return getWeeklyScheduleForUser(userId);
+        }
+
+        private StaffShiftRequest toStaffShift(Schedule schedule) {
+                StaffShiftRequest response = new StaffShiftRequest();
+                response.setDayOfWeek(schedule.getDayOfWeek());
+                response.setStartTime(schedule.getStartTime());
+                response.setEndTime(schedule.getEndTime());
+                return response;
         }
 
         public boolean isWithinSchedule(Employee employee) {
