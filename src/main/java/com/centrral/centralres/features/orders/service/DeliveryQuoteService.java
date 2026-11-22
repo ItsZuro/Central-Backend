@@ -1,5 +1,6 @@
 package com.centrral.centralres.features.orders.service;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
@@ -35,11 +36,12 @@ public class DeliveryQuoteService {
             throw new IllegalStateException("La cobertura de delivery no está configurada.");
         }
 
-        Store store = storeRepository.findAll().stream().findFirst()
-                .orElseThrow(() -> new IllegalStateException("No hay una tienda configurada."));
-        if (store.getLatitude() == null || store.getLongitude() == null) {
-            throw new IllegalStateException("La tienda no tiene coordenadas configuradas.");
-        }
+        Store store = storeRepository.findAll().stream()
+                .filter(s -> s.getLatitude() != null && s.getLongitude() != null)
+                .sorted(Comparator.comparing(Store::getId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException(
+                        "No hay una sucursal con coordenadas de reparto configuradas."));
 
         Map<String, Object> response = distanceMatrixService.getDistanceAndDuration(
                 store.getLatitude(), store.getLongitude(), latitude, longitude);
