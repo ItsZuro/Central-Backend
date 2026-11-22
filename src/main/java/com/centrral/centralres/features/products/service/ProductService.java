@@ -205,6 +205,9 @@ public class ProductService {
                 if (request.getPrice() != null && request.getPrice().compareTo(BigDecimal.ZERO) >= 0) {
                         product.setPrice(request.getPrice());
                 }
+                if (request.getDescription() != null && !request.getDescription().isBlank()) {
+                        product.setDescription(request.getDescription());
+                }
                 if (request.getCategoryId() != null) {
                         Category category = categoryRepository.findById(request.getCategoryId())
                                         .orElseThrow(() -> new CategoryNotFoundException(
