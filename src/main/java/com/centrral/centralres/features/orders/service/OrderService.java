@@ -384,11 +384,15 @@ public class OrderService {
                                 "La venta presencial solo admite salón o para llevar.");
                 }
 
-                request.setEmployeeId(cashierEmployee.getId());
-                Order order = buildOrderBase(request, customer);
-                order.setStatus(statusRepository.findByCode("PENDING_CONFIRMATION")
+                // Neither the staff member nor the customer can mark a new sale as paid
+                // or already confirmed by supplying another statusId.
+                OrderStatus initial = statusRepository.findByCode("PENDING_CONFIRMATION")
                         .orElseThrow(() -> new EntityNotFoundException(
-                                "Estado inicial de venta presencial no configurado.")));
+                                "Estado inicial de venta presencial no configurado."));
+                request.setEmployeeId(cashierEmployee.getId());
+                request.setStatusId(initial.getId());
+                Order order = buildOrderBase(request, customer);
+                order.setStatus(initial);
 
                 BigDecimal total = BigDecimal.ZERO;
                 Set<OrderDetail> details = new LinkedHashSet<>();
