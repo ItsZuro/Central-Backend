@@ -140,7 +140,7 @@ public class UserService {
         }
 
         Set<String> allowedRoles = Set.of(
-                "ROLE_ADMIN", "ROLE_MANAGER", "ROLE_WAITER", "ROLE_CHEF", "ROLE_CASHIER", "ROLE_DRIVER", "ROLE_DRIVER");
+                "ROLE_ADMIN", "ROLE_MANAGER", "ROLE_WAITER", "ROLE_CHEF", "ROLE_CASHIER", "ROLE_DRIVER");
         if (!allowedRoles.contains(request.getRole())) {
             throw new IllegalArgumentException("Rol de personal no permitido.");
         }
