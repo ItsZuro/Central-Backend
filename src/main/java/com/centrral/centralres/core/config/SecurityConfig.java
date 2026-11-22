@@ -118,7 +118,11 @@ public class SecurityConfig {
                                 "/api/v1/order-statuses", "/api/v1/order-statuses/*",
                                 "/api/v1/payment-methods", "/api/v1/payment-methods/*",
                                 "/api/v1/stores", "/api/v1/stores/*").permitAll()
-                        .requestMatchers("/api/v1/stores/**").hasAnyRole("CLIENT", "ADMIN")
+                        // La consulta de sucursales es pública; solo el personal autorizado las configura.
+                        .requestMatchers(HttpMethod.POST, "/api/v1/stores", "/api/v1/stores/**").hasAnyRole("ADMIN", "MANAGER")
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/stores/**").hasAnyRole("ADMIN", "MANAGER")
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/stores/**").hasAnyRole("ADMIN", "MANAGER")
+                        .requestMatchers("/api/v1/stores/**").hasAnyRole("ADMIN", "MANAGER")
 
                         .anyRequest()
                         .authenticated())
