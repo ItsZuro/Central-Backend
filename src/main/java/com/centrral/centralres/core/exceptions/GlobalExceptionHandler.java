@@ -65,6 +65,12 @@ public class GlobalExceptionHandler {
         return buildResponse(ex.getMessage(), HttpStatus.FORBIDDEN);
     }
 
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    public ResponseEntity<ApiResponse<Object>> handleStaffAccessDenied(
+            org.springframework.security.access.AccessDeniedException ex) {
+        return buildResponse("No tienes permisos para realizar esta operación.", HttpStatus.FORBIDDEN);
+    }
+
     @ExceptionHandler({
             ProductNotFoundException.class,
             CategoryNotFoundException.class,
