@@ -12,11 +12,13 @@ import java.math.RoundingMode;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
+import java.util.Locale;
 import java.util.HexFormat;
 
 import javax.imageio.ImageIO;
 
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -54,9 +56,19 @@ public class FileService {
         return 5 * 1024 * 1024;
     }
 
+    @Transactional
     public FileMetadata uploadFile(MultipartFile file, String folder) {
         validateFolder(folder);
         validateFile(file);
+        if ("products".equals(folder)) {
+            validateProductImage(file);
+            var actor = getCurrentUser();
+            boolean authorized = actor.getRoles().stream().anyMatch(role ->
+                    "ROLE_ADMIN".equals(role.getName()) || "ROLE_MANAGER".equals(role.getName()));
+            if (!authorized) {
+                throw new AccessDeniedException("Solo el personal autorizado puede subir imágenes de productos.");
+            }
+        }
 
         File tempFile = null;
         try {
@@ -110,7 +122,15 @@ public class FileService {
 
             metadata.setDetails(detail);
 
-            return fileRepository.save(metadata);
+            FileMetadata saved = fileRepository.save(metadata);
+            if ("products".equals(folder)) {
+                saved.setUrl(ServletUriComponentsBuilder.fromCurrentContextPath()
+                        .path("/api/v1/files/product-images/")
+                        .path(saved.getId().toString())
+                        .toUriString());
+                saved = fileRepository.save(saved);
+            }
+            return saved;
 
         } catch (IOException e) {
             throw new FileUploadException("Error procesando el archivo: " + e.getMessage());
@@ -136,6 +156,58 @@ public class FileService {
         fileRepository.delete(file);
 
         return new DeleteResponse(file.getId(), currentUser.getId(), currentUser.getUsername());
+    }
+
+    public record ProductImage(byte[] bytes, String contentType) { }
+
+    @Transactional(readOnly = true)
+    public ProductImage readProductImage(Long id) {
+        FileMetadata file = fileRepository.findById(id)
+                .orElseThrow(() -> new FileNotFoundException("Imagen del producto no encontrada."));
+        if (!"products".equals(file.getFolder()) || file.getDetails() == null ||
+                !isProductImageType(file.getDetails().getContentType())) {
+            throw new FileNotFoundException("Imagen del producto no encontrada.");
+        }
+        return new ProductImage(s3Service.readFile(file.getKey()), file.getDetails().getContentType());
+    }
+
+    private static boolean isProductImageType(String type) {
+        return "image/jpeg".equals(type) || "image/png".equals(type) || "image/webp".equals(type);
+    }
+
+    /** MIME, extensión y firma de archivo; evita subir HTML/SVG disfrazados como imágenes. */
+    private void validateProductImage(MultipartFile file) {
+        if (file.getSize() > 5L * 1024L * 1024L) {
+            throw new FileUploadException("La imagen del producto debe pesar como máximo 5 MB.");
+        }
+        String fileName = file.getOriginalFilename() == null ? ""
+                : file.getOriginalFilename().toLowerCase(Locale.ROOT);
+        String mime = file.getContentType();
+        boolean jpeg = "image/jpeg".equals(mime) && (fileName.endsWith(".jpg") || fileName.endsWith(".jpeg"));
+        boolean png = "image/png".equals(mime) && fileName.endsWith(".png");
+        boolean webp = "image/webp".equals(mime) && fileName.endsWith(".webp");
+        if (!(jpeg || png || webp)) {
+            throw new FileUploadException("Selecciona una imagen JPG, PNG o WEBP.");
+        }
+        try (InputStream in = file.getInputStream()) {
+            byte[] signature = in.readNBytes(12);
+            boolean valid = (jpeg && signature.length >= 3 &&
+                    (signature[0] & 0xff) == 0xff && (signature[1] & 0xff) == 0xd8 &&
+                    (signature[2] & 0xff) == 0xff)
+                    || (png && signature.length >= 8 &&
+                    (signature[0] & 0xff) == 0x89 && signature[1] == 0x50 &&
+                    signature[2] == 0x4e && signature[3] == 0x47 &&
+                    signature[4] == 0x0d && signature[5] == 0x0a &&
+                    signature[6] == 0x1a && signature[7] == 0x0a)
+                    || (webp && signature.length >= 12 &&
+                    signature[0] == 'R' && signature[1] == 'I' &&
+                    signature[2] == 'F' && signature[3] == 'F' &&
+                    signature[8] == 'W' && signature[9] == 'E' &&
+                    signature[10] == 'B' && signature[11] == 'P');
+            if (!valid) throw new FileUploadException("El contenido del archivo no es una imagen válida.");
+        } catch (IOException e) {
+            throw new FileUploadException("No se pudo leer la imagen.");
+        }
     }
 
     private void validateFile(MultipartFile file) {
