@@ -25,6 +25,7 @@ import com.centrral.centralres.core.exceptions.UserNotFoundException;
 import com.centrral.centralres.core.exceptions.UsernameAlreadyExistsException;
 import com.centrral.centralres.core.exceptions.UsernameChangeNotAllowedException;
 import com.centrral.centralres.core.security.dto.ChanguePasswordRequest;
+import com.centrral.centralres.core.security.dto.AdminResetStaffPasswordRequest;
 import com.centrral.centralres.core.security.dto.CreateStaffUserRequest;
 import com.centrral.centralres.core.security.dto.UpdateProfileRequest;
 import com.centrral.centralres.core.security.dto.UpdateProfileResponse;
@@ -39,6 +40,7 @@ import com.centrral.centralres.core.security.model.User;
 import com.centrral.centralres.core.security.repository.UserRepository;
 import com.centrral.centralres.core.security.repository.RoleRepository;
 import com.centrral.centralres.features.employees.service.StaffEmployeeProvisioner;
+import lombok.extern.slf4j.Slf4j;
 import com.centrral.centralres.features.employees.service.ScheduleService;
 import com.centrral.centralres.features.employees.dto.schedule.request.StaffShiftRequest;
 
@@ -46,6 +48,7 @@ import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class UserService {
 
     private final PasswordEncoder passwordEncoder;
@@ -55,6 +58,7 @@ public class UserService {
     private final RoleRepository roleRepository;
     private final FileService fileService;
     private final StaffEmployeeProvisioner staffEmployeeProvisioner;
+    private final TokenBlacklistService tokenBlacklistService;
     private final ScheduleService scheduleService;
     // private final NotificationProducer notificationProducer;
 
@@ -386,6 +390,57 @@ public class UserService {
         userRepository.save(user);
 
         return getUserByUsername(user.getUsername());
+    }
+
+    /**
+     * Recuperación administrada de cuentas operativas LOCAL. No permite cambiar
+     * contraseñas de clientes, proveedores ni administradores (incluida la propia).
+     * La transacción revoca los refresh tokens y los JWT emitidos que aún
+     * estén activos, de modo que el empleado debe volver a autenticarse.
+     */
+    @Transactional
+    public void resetStaffPassword(User requestingUser, Long targetUserId,
+                                   AdminResetStaffPasswordRequest request) {
+        if (requestingUser == null || !requestingUser.hasRole("ROLE_ADMIN")) {
+            throw new AccessDeniedException("Solo un administrador puede restablecer contraseñas de personal.");
+        }
+
+        User admin = userRepository.findById(requestingUser.getId())
+                .orElseThrow(() -> new UserNotFoundException("Administrador no encontrado"));
+        if (!admin.isEnabled() || !admin.hasRole("ROLE_ADMIN")
+                || admin.getPassword() == null
+                || !passwordEncoder.matches(request.getAdminPassword(), admin.getPassword())) {
+            throw new InvalidPasswordException("La contraseña del administrador es incorrecta.");
+        }
+
+        User target = userRepository.findById(targetUserId)
+                .orElseThrow(() -> new UserNotFoundException("Usuario no encontrado"));
+        if (admin.getId().equals(target.getId()) || target.hasRole("ROLE_ADMIN")
+                || target.hasRole("ROLE_CLIENT") || target.hasRole("ROLE_SUPPLIER")
+                || target.getRoles().stream().noneMatch(role -> Set.of(
+                        "ROLE_MANAGER", "ROLE_WAITER", "ROLE_CHEF", "ROLE_CASHIER"
+                ).contains(role.getName()))) {
+            throw new AccessDeniedException("Esta operación solo admite cuentas operativas de personal.");
+        }
+
+        if (target.getProvider() != AuthProvider.LOCAL) {
+            throw new IllegalArgumentException("Solo se puede restablecer la contraseña de cuentas locales.");
+        }
+        if (passwordEncoder.matches(request.getNewPassword(), target.getPassword())) {
+            throw new IllegalArgumentException("La nueva contraseña debe ser distinta de la anterior.");
+        }
+        if (request.getNewPassword().equals(request.getAdminPassword())) {
+            throw new IllegalArgumentException("No utilices la contraseña de administrador como contraseña de personal.");
+        }
+
+        target.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(target);
+        authService.revokeAllRefreshTokens(target);
+        tokenBlacklistService.revokeIssuedAccessTokensForUser(
+                target.getUsername(), "Restablecimiento de contraseña por administrador");
+
+        log.info("Contraseña de personal restablecida por adminId={} para userId={}",
+                admin.getId(), target.getId());
     }
 
     @Transactional
