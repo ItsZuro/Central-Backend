@@ -188,7 +188,7 @@ public class OrderService {
 
         @Transactional
         public OrderResponse updateAssignedDeliveryStatus(Long id, String newCode, User user, String lang) {
-                Order order = orderRepository.findById(id)
+                Order order = orderRepository.findByIdForUpdate(id)
                         .orElseThrow(() -> new EntityNotFoundException("Pedido no encontrado."));
                 if (order.getEmployee() == null || order.getType() == null
                         || !"DELIVERY".equalsIgnoreCase(order.getType().getCode())
@@ -407,7 +407,7 @@ public class OrderService {
 
         @Transactional
         public OrderResponse update(Long id, OrderRequest request, String lang) {
-                Order order = orderRepository.findById(id)
+                Order order = orderRepository.findByIdForUpdate(id)
                                 .orElseThrow(() -> new EntityNotFoundException("Orden no encontrada con id: " + id));
 
                 order.setCustomer(customerRepository.findById(request.getCustomerId())
@@ -491,7 +491,7 @@ public class OrderService {
         public OrderResponse updateStatus(Long id, UpdateStatusRequest request, String lang) {
                 log.info("Actualizando estado para orden {} al estado: {}", id, request.getNewStatusCode());
 
-                Order order = orderRepository.findById(id)
+                Order order = orderRepository.findByIdForUpdate(id)
                                 .orElseThrow(() -> new EntityNotFoundException("Orden no encontrada con id: " + id));
 
                 // ¡Ahora esto funciona gracias al paso 2!
@@ -585,7 +585,7 @@ public class OrderService {
 
         @Transactional
         public OrderResponse cancelOrder(Long id, User user, String lang) {
-                Order order = orderRepository.findById(id)
+                Order order = orderRepository.findByIdForUpdate(id)
                                 .orElseThrow(() -> new EntityNotFoundException("Orden no encontrada"));
 
                 if (order.getStatus().getCode().equalsIgnoreCase("CANCELLED")) {
@@ -651,7 +651,7 @@ public class OrderService {
 
         @Transactional
         public void addLocalPayment(Long orderId, PaymentInOrderRequest request) {
-                Order order = orderRepository.findById(orderId)
+                Order order = orderRepository.findByIdForUpdate(orderId)
                                 .orElseThrow(() -> new EntityNotFoundException(
                                                 "Orden no encontrada con id: " + orderId));
                 if ("DELIVERY".equalsIgnoreCase(order.getType().getCode())) {
