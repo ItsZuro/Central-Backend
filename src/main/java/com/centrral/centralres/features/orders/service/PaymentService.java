@@ -269,7 +269,10 @@ public class PaymentService {
                                 .orderId(payment.getOrder().getId())
                                 .paymentMethodId(payment.getPaymentMethod().getId())
                                 .paymentMethodName(payment.getPaymentMethod().getCode())
-                                .customerName(payment.getOrder().getCustomer().getUser().getFullName())
+                                .customerName(payment.getOrder().getCustomer() != null
+                                        && payment.getOrder().getCustomer().getUser() != null
+                                        ? payment.getOrder().getCustomer().getUser().getFullName()
+                                        : "Consumidor final")
                                 .amount(payment.getAmount())
                                 .date(payment.getDate())
                                 .isOnline(payment.getIsOnline())
