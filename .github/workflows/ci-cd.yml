@@ -2,7 +2,7 @@ name: Backend CI/CD
 
 on:
   push:
-    branches: [main, feature/cloud-final-project]
+    branches: [main, feature/cloud-final-project, 'feat/admin-*']
   pull_request:
     branches: [main]
   workflow_dispatch:

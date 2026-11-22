@@ -2,10 +2,12 @@ package com.centrral.centralres.core.security.controller;
 
 import java.util.List;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -16,6 +18,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.centrral.centralres.core.security.dto.ApiResponse;
 import com.centrral.centralres.core.security.dto.ChanguePasswordRequest;
+import com.centrral.centralres.core.security.dto.CreateStaffUserRequest;
 import com.centrral.centralres.core.security.dto.UpdateProfileRequest;
 import com.centrral.centralres.core.security.dto.UpdateProfileResponse;
 import com.centrral.centralres.core.security.dto.UpdateUserRequest;
@@ -55,6 +58,16 @@ public class UserController {
 
         return ResponseEntity.ok(
                 new ApiResponse<>(true, "Usuarios obtenidos correctamente", users));
+    }
+
+    @PostMapping("/admin")
+    public ResponseEntity<ApiResponse<UserProfileResponse>> createStaffUser(
+            @AuthenticationPrincipal User requestingUser,
+            @Valid @RequestBody CreateStaffUserRequest request) {
+
+        UserProfileResponse created = userService.createStaffUser(requestingUser, request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(new ApiResponse<>(true, "Usuario de personal creado correctamente", created));
     }
 
     @GetMapping("/sessions")
