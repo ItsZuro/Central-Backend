@@ -16,6 +16,7 @@ import org.springframework.data.repository.query.Param;
 
 import com.centrral.centralres.features.customers.model.Customer;
 import com.centrral.centralres.features.orders.model.Order;
+import com.centrral.centralres.features.orders.enums.PaymentStatus;
 
 public interface OrderRepository extends JpaRepository<Order, Long> {
     // Evita carreras entre cobro Niubiz y cancelación de un mismo pedido.
@@ -39,6 +40,26 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     Page<Order> findByCustomer_Id(Long customerId, Pageable pageable);
 
     List<Order> findByEmployee_IdAndType_Code(Long employeeId, String typeCode);
+
+    /**
+     * Solo ofertas listas, pagadas y sin responsable. No obtiene datos de
+     * clientes para los repartidores que aún no aceptaron el pedido.
+     */
+    @Query("""
+        SELECT o FROM CustomerOrder o
+        WHERE o.type.code = 'DELIVERY'
+          AND o.status.code = 'READY_FOR_PICKUP'
+          AND o.employee IS NULL
+          AND EXISTS (
+              SELECT p.id FROM Payment p
+              WHERE p.order = o AND p.status = :paidStatus
+          )
+        ORDER BY o.date ASC, o.id ASC
+        """)
+    List<Order> findAvailableDeliveryOffers(
+            @Param("paidStatus") PaymentStatus paidStatus,
+            Pageable pageable);
+
 
     @Query("SELECT COUNT(o) FROM CustomerOrder o WHERE o.date BETWEEN :startOfDay AND :endOfDay")
     int countOrdersByDate(@Param("startOfDay") LocalDateTime startOfDay, @Param("endOfDay") LocalDateTime endOfDay);
