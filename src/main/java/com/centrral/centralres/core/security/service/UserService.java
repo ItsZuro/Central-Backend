@@ -18,6 +18,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.centrral.centralres.core.aws.model.FileMetadata;
 import com.centrral.centralres.core.aws.service.FileService;
+import com.centrral.centralres.core.exceptions.BadRequestException;
 import com.centrral.centralres.core.exceptions.EmailAlreadyExistsException;
 import com.centrral.centralres.core.exceptions.EmailChangeNotAllowedException;
 import com.centrral.centralres.core.exceptions.InvalidPasswordException;
@@ -424,13 +425,13 @@ public class UserService {
         }
 
         if (target.getProvider() != AuthProvider.LOCAL) {
-            throw new IllegalArgumentException("Solo se puede restablecer la contraseña de cuentas locales.");
+            throw new BadRequestException("Solo se puede restablecer la contraseña de cuentas locales.");
         }
         if (passwordEncoder.matches(request.getNewPassword(), target.getPassword())) {
-            throw new IllegalArgumentException("La nueva contraseña debe ser distinta de la anterior.");
+            throw new BadRequestException("La nueva contraseña debe ser distinta de la anterior.");
         }
         if (request.getNewPassword().equals(request.getAdminPassword())) {
-            throw new IllegalArgumentException("No utilices la contraseña de administrador como contraseña de personal.");
+            throw new BadRequestException("No utilices la contraseña de administrador como contraseña de personal.");
         }
 
         target.setPassword(passwordEncoder.encode(request.getNewPassword()));
