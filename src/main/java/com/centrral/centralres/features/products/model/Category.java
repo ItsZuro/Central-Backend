@@ -43,6 +43,13 @@ public class Category {
     @Column(name = "category_name", nullable = false, length = 100, unique = true)
     private String name;
 
+    /** Metadatos opcionales, sin romper las categorías existentes. */
+    @Column(name = "description", columnDefinition = "text")
+    private String description;
+
+    @Column(name = "image_url", length = 2048)
+    private String imageUrl;
+
     @OneToMany(mappedBy = "category")
     private Set<Product> products = new LinkedHashSet<>();
 
