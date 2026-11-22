@@ -79,6 +79,7 @@ public class TokenBlacklistService {
     }
 
     private static final String CREDENTIAL_RESET_REASON = "STAFF_PASSWORD_RESET";
+    private static final String STAFF_DEACTIVATION_REASON = "STAFF_ACCOUNT_DEACTIVATED";
 
     /**
      * Registra un límite temporal para el JWT del empleado, incluyendo tokens
@@ -96,6 +97,34 @@ public class TokenBlacklistService {
                 .expiresAt(now.plusSeconds(86_400L * 365))
                 .reason(CREDENTIAL_RESET_REASON)
                 .build());
+    }
+
+    @Transactional
+    public void recordStaffAccountDeactivation(String username) {
+        Instant now = Instant.now();
+        repository.save(TokenAudit.builder()
+                .token("staff-deactivated-" + UUID.randomUUID())
+                .username(username)
+                .eventType(TokenEventType.REVOKED)
+                .timestamp(now)
+                .expiresAt(now.plusSeconds(86_400L * 365))
+                .reason(STAFF_DEACTIVATION_REASON)
+                .build());
+    }
+
+    /**
+     * Revoca JWT emitidos antes de una baja lógica o un restablecimiento
+     * de contraseña. Los tokens nuevos, tras una reactivación, siguen siendo válidos.
+     */
+    @Transactional(readOnly = true)
+    public boolean tokenPredatesStaffSessionRevocation(String username, Instant issuedAt) {
+        if (issuedAt == null || username == null || username.isBlank()) return true;
+        return repository.findFirstByUsernameAndEventTypeAndReasonOrderByTimestampDesc(
+                        username, TokenEventType.REVOKED, CREDENTIAL_RESET_REASON)
+                .filter(marker -> !issuedAt.isAfter(marker.getTimestamp())).isPresent()
+                || repository.findFirstByUsernameAndEventTypeAndReasonOrderByTimestampDesc(
+                        username, TokenEventType.REVOKED, STAFF_DEACTIVATION_REASON)
+                .filter(marker -> !issuedAt.isAfter(marker.getTimestamp())).isPresent();
     }
 
     @Transactional(readOnly = true)
