@@ -13,6 +13,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -34,6 +35,7 @@ import com.centrral.centralres.features.orders.dto.order.request.DeliveryAddress
 import com.centrral.centralres.features.orders.dto.order.request.OrderRequest;
 import com.centrral.centralres.features.orders.dto.order.request.UpdateLocationRequest;
 import com.centrral.centralres.features.orders.dto.order.request.UpdateStatusRequest;
+import com.centrral.centralres.features.orders.dto.order.response.AvailableDeliveryResponse;
 import com.centrral.centralres.features.orders.dto.order.response.DriverOptionResponse;
 import com.centrral.centralres.features.orders.dto.order.response.OrderResponse;
 import com.centrral.centralres.features.orders.dto.order.response.DeliveryQuoteResponse;
@@ -208,6 +210,78 @@ public class OrderService {
                                 employee.getUser().getUsername()))
                         .sorted((a, b) -> a.fullName().compareToIgnoreCase(b.fullName()))
                         .toList();
+        }
+
+        private Employee requireActiveDriver(User user) {
+                if (user == null || user.getId() == null
+                        || !user.isEnabled() || !user.hasRole("ROLE_DRIVER")) {
+                        throw new AccessDeniedException("Solo los repartidores habilitados pueden aceptar pedidos.");
+                }
+                Employee driver = employeeRepository.findByUserId(user.getId())
+                        .orElseThrow(() -> new AccessDeniedException("No existe empleado asociado a la cuenta."));
+                if (driver.getStatus() != EmploymentStatus.ACTIVE
+                        || driver.getUser() == null || !driver.getUser().isEnabled()
+                        || !driver.getUser().getId().equals(user.getId())) {
+                        throw new AccessDeniedException("La cuenta del repartidor no está activa.");
+                }
+                return driver;
+        }
+
+        /**
+         * Ofertas visibles sin datos personales ni dirección exacta.
+         * La asignación real se decide con bloqueo pesimista en acceptAvailableDelivery.
+         */
+        @Transactional(readOnly = true)
+        public List<AvailableDeliveryResponse> getAvailableDeliveries(User user) {
+                requireActiveDriver(user);
+                return orderRepository.findAvailableDeliveryOffers(
+                                PaymentStatus.CONFIRMED, PageRequest.of(0, 50))
+                        .stream()
+                        .map(order -> {
+                                String city = order.getDeliveryCity();
+                                String province = order.getDeliveryProvince();
+                                String area = List.of(
+                                                city == null ? "" : city.trim(),
+                                                province == null ? "" : province.trim())
+                                        .stream().filter(part -> !part.isBlank()).distinct()
+                                        .collect(Collectors.joining(", "));
+                                int units = order.getDetails() == null ? 0 :
+                                        order.getDetails().stream()
+                                            .mapToInt(detail -> detail.getQuantity() == null
+                                                    ? 0 : detail.getQuantity()).sum();
+                                return new AvailableDeliveryResponse(
+                                        order.getId(), order.getDate(),
+                                        area.isBlank() ? "Zona no especificada" : area, units);
+                        }).toList();
+        }
+
+        /**
+         * Se serializa contra otra aceptación y contra la asignación del gerente
+         * mediante el mismo bloqueo PESSIMISTIC_WRITE sobre la fila del pedido.
+         * Un rechazo posterior conserva la asignación anterior.
+         */
+        @Transactional
+        public OrderResponse acceptAvailableDelivery(Long orderId, User user, String lang) {
+                Employee driver = requireActiveDriver(user);
+                Order order = orderRepository.findByIdForUpdate(orderId)
+                        .orElseThrow(() -> new EntityNotFoundException("Pedido no encontrado."));
+                if (order.getType() == null || !"DELIVERY".equalsIgnoreCase(order.getType().getCode())
+                        || order.getStatus() == null
+                        || !"READY_FOR_PICKUP".equals(order.getStatus().getCode())) {
+                        throw new ConflictException(
+                                "Este pedido ya no está listo para que un repartidor lo acepte.");
+                }
+                if (order.getEmployee() != null) {
+                        throw new ConflictException(
+                                "Otro repartidor ya aceptó este pedido o el gerente lo asignó.");
+                }
+                if (!paymentRepository.existsByOrder_IdAndStatus(orderId, PaymentStatus.CONFIRMED)) {
+                        throw new ConflictException("El pedido requiere pago confirmado.");
+                }
+                order.setEmployee(driver);
+                Order saved = orderRepository.save(order);
+                log.info("Repartidor {} aceptó pedido disponible {}", driver.getId(), orderId);
+                return mapToResponse(saved, lang);
         }
 
         @Transactional(readOnly = true)
