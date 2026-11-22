@@ -27,6 +27,7 @@ import com.centrral.centralres.core.exceptions.UsernameAlreadyExistsException;
 import com.centrral.centralres.core.exceptions.UsernameChangeNotAllowedException;
 import com.centrral.centralres.core.security.dto.ChanguePasswordRequest;
 import com.centrral.centralres.core.security.dto.AdminResetStaffPasswordRequest;
+import com.centrral.centralres.core.security.dto.StaffAccountStatusRequest;
 import com.centrral.centralres.core.security.dto.CreateStaffUserRequest;
 import com.centrral.centralres.core.security.dto.UpdateProfileRequest;
 import com.centrral.centralres.core.security.dto.UpdateProfileResponse;
@@ -346,6 +347,42 @@ public class UserService {
         return profile;
     }
 
+    /**
+     * Baja lógica y reactivación de personal. Conserva empleados y registros
+     * históricos; no permite modificar clientes ni cuentas administradoras.
+     */
+    @Transactional
+    public UserProfileResponse changeStaffAccountStatus(User requestingUser, Long targetId,
+                                                        StaffAccountStatusRequest request) {
+        if (requestingUser == null || !requestingUser.hasRole("ROLE_ADMIN")) {
+            throw new AccessDeniedException("Solo un administrador puede activar o dar de baja personal.");
+        }
+        User target = userRepository.findById(targetId)
+                .orElseThrow(() -> new UserNotFoundException("Usuario no encontrado"));
+        if (requestingUser.getId().equals(targetId) || target.hasRole("ROLE_ADMIN")
+                || target.hasRole("ROLE_CLIENT") || target.hasRole("ROLE_SUPPLIER")
+                || target.getRoles().stream().noneMatch(role -> Set.of(
+                        "ROLE_MANAGER", "ROLE_WAITER", "ROLE_CHEF", "ROLE_CASHIER"
+                ).contains(role.getName()))) {
+            throw new AccessDeniedException("La baja solo está disponible para personal operativo.");
+        }
+
+        boolean enabled = request.getEnabled();
+        if (target.isEnabled() == enabled) return getUserByUsername(target.getUsername());
+        target.setEnabled(enabled);
+        userRepository.save(target);
+
+        if (!enabled) {
+            authService.revokeAllRefreshTokens(target);
+            tokenBlacklistService.revokeIssuedAccessTokensForUser(target.getUsername(),
+                    "Baja administrativa de cuenta de personal");
+            tokenBlacklistService.recordStaffAccountDeactivation(target.getUsername());
+        }
+        log.info("Cambio de estado de cuenta de personal adminId={} userId={} enabled={}",
+                requestingUser.getId(), targetId, enabled);
+        return getUserByUsername(target.getUsername());
+    }
+
     @Transactional
     public UserProfileResponse updateUserById(User requestingUser, Long userId, UpdateUserRequest request) {
         boolean isAdmin = requestingUser.getRoles().stream()
@@ -370,6 +407,10 @@ public class UserService {
         user.setLastName(request.getLastName());
         user.setEmail(request.getEmail());
         user.setPhone(request.getPhone());
+        boolean wasEnabled = user.isEnabled();
+        if (user.hasRole("ROLE_ADMIN") && !request.isEnabled()) {
+            throw new AccessDeniedException("No puedes desactivar cuentas administradoras desde el directorio.");
+        }
         user.setEnabled(request.isEnabled());
 
         if (requestingUser.getId().equals(user.getId()) && !request.isEnabled()) {
@@ -389,6 +430,12 @@ public class UserService {
         }
 
         userRepository.save(user);
+        if (wasEnabled && !user.isEnabled()) {
+            authService.revokeAllRefreshTokens(user);
+            tokenBlacklistService.revokeIssuedAccessTokensForUser(user.getUsername(),
+                    "Baja administrativa de cuenta de personal");
+            tokenBlacklistService.recordStaffAccountDeactivation(user.getUsername());
+        }
 
         return getUserByUsername(user.getUsername());
     }
