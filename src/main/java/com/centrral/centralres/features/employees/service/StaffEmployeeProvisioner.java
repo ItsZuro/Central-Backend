@@ -30,11 +30,12 @@ import lombok.extern.slf4j.Slf4j;
 public class StaffEmployeeProvisioner {
 
     private static final List<String> STAFF_ROLE_PRIORITY =
-            List.of("ROLE_MANAGER", "ROLE_WAITER", "ROLE_CHEF", "ROLE_CASHIER");
+            List.of("ROLE_MANAGER", "ROLE_WAITER", "ROLE_CHEF", "ROLE_CASHIER", "ROLE_DRIVER");
 
     private static final Map<String, String> POSITION_DESCRIPTIONS = Map.of(
             "ROLE_MANAGER", "Gerente del restaurante",
-            "ROLE_WAITER", "Mesero - atención de sala y reparto",
+            "ROLE_WAITER", "Mesero - atención de sala",
+            "ROLE_DRIVER", "Repartidor de pedidos delivery",
             "ROLE_CHEF", "Personal de cocina",
             "ROLE_CASHIER", "Personal de caja");
 
