@@ -43,8 +43,10 @@ public class CustomerManagementService {
     @Transactional(readOnly = true)
     public PagedResponse<CustomerResponse> findCustomers(String search, Boolean enabled, Pageable pageable) {
         String normalized = search == null || search.isBlank()
-                ? null : search.trim().toLowerCase(Locale.ROOT);
-        Page<Customer> page = customerRepository.findForManagement(normalized, enabled, pageable);
+                ? "" : search.trim().toLowerCase(Locale.ROOT);
+        Page<Customer> page = enabled == null
+                ? customerRepository.findForManagement(normalized, pageable)
+                : customerRepository.findForManagementByEnabled(normalized, enabled, pageable);
         List<CustomerResponse> customers = page.getContent().stream()
                 .map(customer -> customerService.getCustomer(customer.getId())).toList();
         return PagedResponse.<CustomerResponse>builder()
