@@ -66,7 +66,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/payments/niubiz/callback").permitAll()
 
                         // El catálogo muestra imágenes mediante un proxy público de solo lectura.
-                        .requestMatchers(HttpMethod.GET, "/api/v1/files/product-images/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/files/product-images/*",
+                                "/api/v1/files/category-images/*",
+                                "/api/v1/files/profile-images/*").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/products/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/categories/**").permitAll()
 
