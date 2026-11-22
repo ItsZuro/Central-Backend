@@ -53,6 +53,12 @@ public class OrderResponse {
 
     private BigDecimal total;
 
+    // Estado del cobro independiente del avance de cocina/reparto.
+    private String paymentStatus;
+    private String paymentMethodCode;
+    // Reglas calculadas exclusivamente en el servidor.
+    private boolean canCustomerCancel;
+
     private List<OrderDetailInOrderResponse> details;
 
     private List<OrderStatusStepResponse> timelineSteps;
