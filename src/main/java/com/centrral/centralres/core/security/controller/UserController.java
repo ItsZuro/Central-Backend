@@ -26,6 +26,7 @@ import com.centrral.centralres.core.security.dto.UserProfileResponse;
 import com.centrral.centralres.core.security.dto.UserSessionResponse;
 import com.centrral.centralres.core.security.model.User;
 import com.centrral.centralres.core.security.service.UserService;
+import com.centrral.centralres.features.employees.dto.schedule.request.StaffShiftRequest;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -68,6 +69,21 @@ public class UserController {
         UserProfileResponse created = userService.createStaffUser(requestingUser, request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new ApiResponse<>(true, "Usuario de personal creado correctamente", created));
+    }
+
+    @GetMapping("/admin/{id}/schedule")
+    public ResponseEntity<ApiResponse<List<StaffShiftRequest>>> getStaffSchedule(
+            @AuthenticationPrincipal User requestingUser, @PathVariable Long id) {
+        List<StaffShiftRequest> shifts = userService.getStaffSchedule(requestingUser, id);
+        return ResponseEntity.ok(new ApiResponse<>(true, "Horario de personal consultado", shifts));
+    }
+
+    @PutMapping("/admin/{id}/schedule")
+    public ResponseEntity<ApiResponse<List<StaffShiftRequest>>> updateStaffSchedule(
+            @AuthenticationPrincipal User requestingUser, @PathVariable Long id,
+            @Valid @RequestBody List<@Valid StaffShiftRequest> shifts) {
+        List<StaffShiftRequest> saved = userService.updateStaffSchedule(requestingUser, id, shifts);
+        return ResponseEntity.ok(new ApiResponse<>(true, "Horario de personal actualizado", saved));
     }
 
     @GetMapping("/sessions")
