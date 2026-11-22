@@ -25,18 +25,25 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
 
     @Query("""
             SELECT c FROM Customer c JOIN c.user u
-            WHERE (:enabled IS NULL OR u.enabled = :enabled)
-              AND (:term IS NULL
-                  OR LOWER(u.username) LIKE CONCAT('%', :term, '%')
-                  OR LOWER(u.firstName) LIKE CONCAT('%', :term, '%')
-                  OR LOWER(u.lastName) LIKE CONCAT('%', :term, '%')
-                  OR LOWER(CONCAT(u.firstName, ' ', u.lastName)) LIKE CONCAT('%', :term, '%')
-                  OR LOWER(u.email) LIKE CONCAT('%', :term, '%'))
+            WHERE LOWER(u.username) LIKE CONCAT('%', :term, '%')
+               OR LOWER(u.firstName) LIKE CONCAT('%', :term, '%')
+               OR LOWER(u.lastName) LIKE CONCAT('%', :term, '%')
+               OR LOWER(CONCAT(u.firstName, ' ', u.lastName)) LIKE CONCAT('%', :term, '%')
+               OR LOWER(u.email) LIKE CONCAT('%', :term, '%')
             """)
-    Page<Customer> findForManagement(@Param("term") String term,
-                                    @Param("enabled") Boolean enabled,
-                                    Pageable pageable);
+    Page<Customer> findForManagement(@Param("term") String term, Pageable pageable);
 
+    @Query("""
+            SELECT c FROM Customer c JOIN c.user u
+            WHERE u.enabled = :enabled
+              AND (LOWER(u.username) LIKE CONCAT('%', :term, '%')
+               OR LOWER(u.firstName) LIKE CONCAT('%', :term, '%')
+               OR LOWER(u.lastName) LIKE CONCAT('%', :term, '%')
+               OR LOWER(CONCAT(u.firstName, ' ', u.lastName)) LIKE CONCAT('%', :term, '%')
+               OR LOWER(u.email) LIKE CONCAT('%', :term, '%'))
+            """)
+    Page<Customer> findForManagementByEnabled(@Param("term") String term,
+                                               @Param("enabled") boolean enabled, Pageable pageable);
 
     boolean existsByUser_Id(Long userId);
 
