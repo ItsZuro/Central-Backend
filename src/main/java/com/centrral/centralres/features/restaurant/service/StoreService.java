@@ -54,6 +54,8 @@ public class StoreService {
                 .phone(request.getPhone())
                 .openTime(request.getOpenTime())
                 .closeTime(request.getCloseTime())
+                .latitude(request.getLatitude())
+                .longitude(request.getLongitude())
                 .build();
 
         Store savedStore = storeRepository.save(store);
@@ -78,6 +80,8 @@ public class StoreService {
         store.setPhone(request.getPhone());
         store.setOpenTime(request.getOpenTime());
         store.setCloseTime(request.getCloseTime());
+        store.setLatitude(request.getLatitude());
+        store.setLongitude(request.getLongitude());
 
         Store updatedStore = storeRepository.save(store);
         log.info("Sucursal actualizada con ID: {}", updatedStore.getId());
@@ -111,6 +115,16 @@ public class StoreService {
     }
 
     private void validateStoreRequest(StoreRequest request, Long currentId) {
+        // Una única coordenada es inválida: ambas deben apuntar a la misma sede.
+        if ((request.getLatitude() == null) != (request.getLongitude() == null)) {
+            throw new IllegalArgumentException("Debes indicar latitud y longitud juntas.");
+        }
+        if (request.getLatitude() != null && (!Double.isFinite(request.getLatitude())
+                || !Double.isFinite(request.getLongitude())
+                || request.getLatitude() < -90 || request.getLatitude() > 90
+                || request.getLongitude() < -180 || request.getLongitude() > 180)) {
+            throw new IllegalArgumentException("Coordenadas de la sucursal no válidas.");
+        }
         if (request.getOpenTime() != null && request.getCloseTime() != null) {
             if (request.getCloseTime().isBefore(request.getOpenTime())
                     && !request.getCloseTime().equals(LocalTime.MIDNIGHT)) {
