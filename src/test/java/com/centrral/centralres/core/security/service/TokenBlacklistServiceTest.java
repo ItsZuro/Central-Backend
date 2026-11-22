@@ -7,6 +7,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import java.time.Instant;
+import java.util.Optional;
 import java.time.temporal.ChronoUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -52,4 +53,31 @@ class TokenBlacklistServiceTest {
             Instant.now().minusSeconds(5), null, null);
         verify(repository, never()).save(any(TokenAudit.class));
     }
+    @Test
+    void passwordResetCreatesAuditMarkerWithoutSensitiveCredentials() {
+        service.recordStaffPasswordReset("mesero.central");
+        ArgumentCaptor<TokenAudit> saved = ArgumentCaptor.forClass(TokenAudit.class);
+        verify(repository).save(saved.capture());
+        assertThat(saved.getValue().getEventType()).isEqualTo(TokenEventType.REVOKED);
+        assertThat(saved.getValue().getReason()).isEqualTo("STAFF_PASSWORD_RESET");
+        assertThat(saved.getValue().getUsername()).isEqualTo("mesero.central");
+        assertThat(saved.getValue().getToken()).startsWith("credentials-reset-");
+    }
+
+    @Test
+    void passwordResetInvalidatesTokensIssuedBeforeMarker() {
+        Instant markerTime = Instant.parse("2026-11-22T20:00:00Z");
+        TokenAudit marker = TokenAudit.builder().eventType(TokenEventType.REVOKED)
+                .timestamp(markerTime).username("mesero.central")
+                .reason("STAFF_PASSWORD_RESET").build();
+        when(repository.findFirstByUsernameAndEventTypeAndReasonOrderByTimestampDesc(
+                "mesero.central", TokenEventType.REVOKED, "STAFF_PASSWORD_RESET"))
+                .thenReturn(Optional.of(marker));
+
+        assertThat(service.tokenPredatesStaffPasswordReset(
+                "mesero.central", markerTime.minusSeconds(1))).isTrue();
+        assertThat(service.tokenPredatesStaffPasswordReset(
+                "mesero.central", markerTime.plusSeconds(1))).isFalse();
+    }
+
 }
