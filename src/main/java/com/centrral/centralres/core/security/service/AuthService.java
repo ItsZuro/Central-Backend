@@ -326,7 +326,7 @@ public class AuthService {
     }
 
     @Transactional
-    void revokeAllRefreshTokens(User user) {
+    public void revokeAllRefreshTokens(User user) {
         refreshTokenRepository.deleteAllByUser(user);
     }
 
