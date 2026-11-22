@@ -64,13 +64,15 @@ public class FileService {
     public FileMetadata uploadFile(MultipartFile file, String folder) {
         validateFolder(folder);
         validateFile(file);
-        if ("products".equals(folder)) {
+        if ("products".equals(folder) || "categories".equals(folder) || "profiles".equals(folder)) {
             validateProductImage(file);
+        }
+        if ("products".equals(folder) || "categories".equals(folder)) {
             var actor = getCurrentUser();
             boolean authorized = actor.getRoles().stream().anyMatch(role ->
                     "ROLE_ADMIN".equals(role.getName()) || "ROLE_MANAGER".equals(role.getName()));
             if (!authorized) {
-                throw new AccessDeniedException("Solo el personal autorizado puede subir imágenes de productos.");
+                throw new AccessDeniedException("Solo administradores y gerentes pueden subir imágenes del catálogo.");
             }
         }
 
@@ -127,14 +129,8 @@ public class FileService {
             metadata.setDetails(detail);
 
             FileMetadata saved = fileRepository.save(metadata);
-            if ("products".equals(folder)) {
-                String publicUrl = publicApiOrigin != null && !publicApiOrigin.isBlank()
-                        ? publicApiOrigin.replaceAll("/+$", "") + "/api/v1/files/product-images/" + saved.getId()
-                        : ServletUriComponentsBuilder.fromCurrentContextPath()
-                                .path("/api/v1/files/product-images/")
-                                .path(saved.getId().toString())
-                                .toUriString();
-                saved.setUrl(publicUrl);
+            if (isPublicImageFolder(folder)) {
+                saved.setUrl(imagePublicUrl(saved));
                 saved = fileRepository.save(saved);
             }
             return saved;
@@ -167,13 +163,43 @@ public class FileService {
 
     public record ProductImage(byte[] bytes, String contentType) { }
 
+    private boolean isPublicImageFolder(String folder) {
+        return "products".equals(folder) || "categories".equals(folder) || "profiles".equals(folder);
+    }
+
+    private String imagePublicUrl(FileMetadata file) {
+        String endpoint = switch (file.getFolder()) {
+            case "categories" -> "category-images";
+            case "profiles" -> "profile-images";
+            default -> "product-images";
+        };
+        String path = "/api/v1/files/" + endpoint + "/" + file.getId();
+        return publicApiOrigin != null && !publicApiOrigin.isBlank()
+                ? publicApiOrigin.replaceAll("/+$", "") + path
+                : ServletUriComponentsBuilder.fromCurrentContextPath().path(path).toUriString();
+    }
+
     @Transactional(readOnly = true)
     public ProductImage readProductImage(Long id) {
+        return readImage(id, "products");
+    }
+
+    @Transactional(readOnly = true)
+    public ProductImage readCategoryImage(Long id) {
+        return readImage(id, "categories");
+    }
+
+    @Transactional(readOnly = true)
+    public ProductImage readProfileImage(Long id) {
+        return readImage(id, "profiles");
+    }
+
+    private ProductImage readImage(Long id, String folder) {
         FileMetadata file = fileRepository.findById(id)
-                .orElseThrow(() -> new FileNotFoundException("Imagen del producto no encontrada."));
-        if (!"products".equals(file.getFolder()) || file.getDetails() == null ||
+                .orElseThrow(() -> new FileNotFoundException("Imagen no encontrada."));
+        if (!folder.equals(file.getFolder()) || file.getDetails() == null ||
                 !isProductImageType(file.getDetails().getContentType())) {
-            throw new FileNotFoundException("Imagen del producto no encontrada.");
+            throw new FileNotFoundException("Imagen no encontrada.");
         }
         return new ProductImage(s3Service.readFile(file.getKey()), file.getDetails().getContentType());
     }
@@ -294,7 +320,10 @@ public class FileService {
     public String getFileUrl(Long fileId) {
         FileMetadata file = fileRepository.findById(fileId)
                 .orElseThrow(() -> new FileNotFoundException("Archivo no encontrado con id: " + fileId));
-        return file.getUrl();
+        // Fotos antiguas también se sirven desde el proxy, aunque se guardaran con URL de S3.
+        return isPublicImageFolder(file.getFolder()) && file.getDetails() != null
+                && isProductImageType(file.getDetails().getContentType())
+                ? imagePublicUrl(file) : file.getUrl();
     }
 
     @Transactional
