@@ -551,6 +551,19 @@ public class ReservationService {
         Customer customer = customerRepository.findByUserId(currentUser.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado para usuario autenticado"));
 
+        // Bloquear primero el registro del cliente impide que dos solicitudes simultáneas
+        // en mesas distintas evadan el límite (también entre tareas ECS/Fargate).
+        customer = customerRepository.findByIdWithLock(customer.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado"));
+
+        ZonedDateTime nowInLima = ZonedDateTime.now(RESTAURANT_ZONE);
+        List<Reservation> activeUpcoming = reservationRepository.findActiveUpcomingForCustomer(
+                customer.getId(),
+                Set.of(ReservationStatus.PENDING, ReservationStatus.CONFIRMED),
+                nowInLima.toLocalDate(),
+                nowInLima.toLocalTime());
+        SelfServiceReservationPolicy.validate(activeUpcoming, dto.getReservationDate());
+
         TableEntity table;
 
         if (dto.getTableId() == null) {
