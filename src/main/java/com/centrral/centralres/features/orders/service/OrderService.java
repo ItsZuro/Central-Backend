@@ -19,6 +19,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.centrral.centralres.core.config.TaxConfig;
+import com.centrral.centralres.core.exceptions.ConflictException;
+import com.centrral.centralres.features.orders.repository.CashShiftRepository;
 import com.centrral.centralres.core.dto.response.PagedResponse;
 import com.centrral.centralres.core.security.model.User;
 import com.centrral.centralres.features.customers.model.Customer;
@@ -94,6 +96,7 @@ public class OrderService {
         private final DeliveryQuoteService deliveryQuoteService;
         private final InvoiceGenerator invoiceGenerator;
         private final PaymentMethodRepository paymentMethodRepository;
+        private final CashShiftRepository cashShiftRepository;
 
         @Transactional(readOnly = true)
         public List<OrderResponse> getAll(String lang, String typeCode) {
@@ -347,6 +350,10 @@ public class OrderService {
 
         @Transactional
         public OrderResponse createPosSale(User cashierUser, OrderRequest request, String lang) {
+                if (cashierUser.hasRole("ROLE_CASHIER")
+                        && cashShiftRepository.findFirstByCashierUserIdAndClosedAtIsNull(cashierUser.getId()).isEmpty()) {
+                        throw new ConflictException("Abre tu turno de caja antes de registrar una venta.");
+                }
                 Employee cashierEmployee = employeeRepository.findByUserId(cashierUser.getId())
                                 .orElseThrow(() -> new EntityNotFoundException(
                                                 "Perfil de empleado no encontrado para el cajero autenticado"));
@@ -432,6 +439,9 @@ public class OrderService {
         public OrderResponse update(Long id, OrderRequest request, String lang) {
                 Order order = orderRepository.findByIdForUpdate(id)
                                 .orElseThrow(() -> new EntityNotFoundException("Orden no encontrada con id: " + id));
+                if (paymentRepository.existsByOrder_IdAndStatus(id, PaymentStatus.CONFIRMED)) {
+                        throw new ConflictException("El pedido ya fue cobrado y no puede editarse sin una devolución auditada.");
+                }
 
                 order.setCustomer(customerRepository.findById(request.getCustomerId())
                                 .orElseThrow(() -> new EntityNotFoundException(
@@ -614,6 +624,9 @@ public class OrderService {
         public void delete(Long id) {
                 Order order = orderRepository.findById(id)
                                 .orElseThrow(() -> new EntityNotFoundException("Orden no encontrada con id: " + id));
+                if (paymentRepository.existsByOrder_IdAndStatus(id, PaymentStatus.CONFIRMED)) {
+                        throw new ConflictException("No se puede eliminar un pedido con un pago confirmado.");
+                }
 
                 order.getDetails().forEach(detail -> applyInventoryMovement(detail.getProduct(), detail.getQuantity(),
                                 true, order.getId(), "Eliminación de orden"));
@@ -692,6 +705,9 @@ public class OrderService {
                 Order order = orderRepository.findByIdForUpdate(orderId)
                                 .orElseThrow(() -> new EntityNotFoundException(
                                                 "Orden no encontrada con id: " + orderId));
+                if (paymentRepository.existsByOrder_IdAndStatus(orderId, PaymentStatus.CONFIRMED)) {
+                        throw new ConflictException("El pedido ya fue cobrado.");
+                }
                 if ("DELIVERY".equalsIgnoreCase(order.getType().getCode())) {
                         throw new IllegalStateException("No se aceptan pagos locales para delivery.");
                 }
