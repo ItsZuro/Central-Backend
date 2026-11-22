@@ -5,6 +5,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -47,6 +48,28 @@ public class CustomerService {
 
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
+
+    /**
+     * A client may access only their own customer profile; management may
+     * inspect any account. This also protects the legacy customer endpoints.
+     */
+    @Transactional(readOnly = true)
+    public void requireCustomerOwnerOrManagement(Long customerId, User requester) {
+        if (requester == null) throw new AccessDeniedException("Inicia sesión para consultar la cuenta.");
+        if (requester.hasRole("ROLE_ADMIN") || requester.hasRole("ROLE_MANAGER")) return;
+        requireCustomerOwner(customerId, requester);
+    }
+
+    @Transactional(readOnly = true)
+    public void requireCustomerOwner(Long customerId, User requester) {
+        if (requester == null || !requester.hasRole("ROLE_CLIENT")) {
+            throw new AccessDeniedException("La cuenta no corresponde al usuario autenticado.");
+        }
+        Customer customer = findCustomerById(customerId);
+        if (customer.getUser() == null || !requester.getId().equals(customer.getUser().getId())) {
+            throw new AccessDeniedException("Solo puedes consultar o modificar tu propia cuenta.");
+        }
+    }
 
     @Transactional(readOnly = true)
     public PagedResponse<CustomerResponse> getAllCustomers(Pageable pageable) {
