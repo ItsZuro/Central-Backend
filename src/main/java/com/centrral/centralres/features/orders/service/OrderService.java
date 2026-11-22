@@ -532,10 +532,10 @@ public class OrderService {
                                                 "Empleado (repartidor) no encontrado con id: "
                                                                 + request.getEmployeeId()));
 
-                // Actualmente /driver usa ROLE_WAITER: solo esos empleados pueden recibir un reparto.
+                // Solo se puede asignar un reparto a un empleado con el rol DRIVER.
                 if (driver.getUser() == null || driver.getUser().getRoles() == null
                                 || driver.getUser().getRoles().stream()
-                                                .noneMatch(role -> "ROLE_WAITER".equals(role.getName()))) {
+                                                .noneMatch(role -> "ROLE_DRIVER".equals(role.getName()))) {
                         throw new IllegalArgumentException("El empleado seleccionado no tiene permisos de reparto.");
                 }
 
