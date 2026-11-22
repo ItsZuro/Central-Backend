@@ -76,7 +76,9 @@ public class Product {
 
     public void replaceIngredients(Set<ProductIngredient> newIngredients) {
         ingredients.clear();
-        ingredients.addAll(newIngredients);
+        if (newIngredients != null) {
+            ingredients.addAll(newIngredients);
+        }
     }
 
     public void replaceComboItems(Set<ComboProductItem> newComboItems) {
