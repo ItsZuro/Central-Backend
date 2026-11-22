@@ -25,6 +25,7 @@ import com.centrral.centralres.features.orders.dto.order.request.AssignDriverReq
 import com.centrral.centralres.features.orders.dto.order.request.OrderRequest;
 import com.centrral.centralres.features.orders.dto.order.request.UpdateLocationRequest;
 import com.centrral.centralres.features.orders.dto.order.request.UpdateStatusRequest;
+import com.centrral.centralres.features.orders.dto.order.response.AvailableDeliveryResponse;
 import com.centrral.centralres.features.orders.dto.order.response.DriverOptionResponse;
 import com.centrral.centralres.features.orders.dto.order.response.OrderResponse;
 import com.centrral.centralres.features.orders.dto.order.response.DeliveryQuoteResponse;
@@ -47,6 +48,24 @@ public class OrderController {
     public ResponseEntity<ApiResponse<List<DriverOptionResponse>>> eligibleDrivers() {
         return ResponseEntity.ok(new ApiResponse<>(true, "Repartidores activos",
                 orderService.getEligibleDrivers()));
+    }
+
+    @GetMapping("/delivery/available")
+    @PreAuthorize("hasRole('DRIVER')")
+    public ResponseEntity<ApiResponse<List<AvailableDeliveryResponse>>> availableDeliveries(
+            @AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(new ApiResponse<>(true, "Pedidos disponibles sin asignar",
+                orderService.getAvailableDeliveries(user)));
+    }
+
+    @PutMapping("/delivery/{id}/accept")
+    @PreAuthorize("hasRole('DRIVER')")
+    public ResponseEntity<ApiResponse<OrderResponse>> acceptDelivery(
+            @PathVariable Long id,
+            @AuthenticationPrincipal User user,
+            @RequestHeader(name = "Accept-Language", defaultValue = "es") String lang) {
+        return ResponseEntity.ok(new ApiResponse<>(true, "Pedido aceptado por el repartidor",
+                orderService.acceptAvailableDelivery(id, user, lang)));
     }
 
     @GetMapping("/delivery/assigned-me")
