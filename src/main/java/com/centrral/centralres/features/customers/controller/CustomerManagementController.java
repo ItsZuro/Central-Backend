@@ -2,6 +2,7 @@ package com.centrral.centralres.features.customers.controller;
 
 import java.util.List;
 
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -17,6 +18,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.centrral.centralres.core.dto.response.PagedResponse;
+import com.centrral.centralres.features.contact.model.ContactMessage;
+import com.centrral.centralres.features.contact.repository.ContactMessageRepository;
 import com.centrral.centralres.core.security.dto.ApiResponse;
 import com.centrral.centralres.core.security.model.User;
 import com.centrral.centralres.features.customers.dto.customer.request.CustomerAccountStatusRequest;
@@ -40,6 +43,7 @@ public class CustomerManagementController {
     private final CustomerManagementService customerManagementService;
     private final OrderService orderService;
     private final ReservationService reservationService;
+    private final ContactMessageRepository contactMessageRepository;
 
     private Pageable paging(int page, int size, String... sortFields) {
         return PageRequest.of(Math.max(0, page), Math.max(1, Math.min(size, 50)),
@@ -86,6 +90,24 @@ public class CustomerManagementController {
         return ResponseEntity.ok(new ApiResponse<>(true, "Reservas del cliente",
                 reservationService.getReservationsByCustomer(
                         id, paging(page, size, "reservationDate", "reservationTime"))));
+    }
+
+    @GetMapping("/{id}/messages")
+    public ResponseEntity<ApiResponse<PagedResponse<ContactMessage>>> messages(
+            @PathVariable Long id, @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "8") int size) {
+        CustomerResponse customer = customerManagementService.getCustomer(id);
+        Page<ContactMessage> result = contactMessageRepository.findByUserId(
+                customer.getUserId(), paging(page, size, "createdAt"));
+        PagedResponse<ContactMessage> payload = PagedResponse.<ContactMessage>builder()
+                .content(result.getContent())
+                .pageNumber(result.getNumber())
+                .pageSize(result.getSize())
+                .totalElements(result.getTotalElements())
+                .totalPages(result.getTotalPages())
+                .last(result.isLast())
+                .build();
+        return ResponseEntity.ok(new ApiResponse<>(true, "Mensajes de contacto del cliente", payload));
     }
 
     @GetMapping("/{id}/actions")
