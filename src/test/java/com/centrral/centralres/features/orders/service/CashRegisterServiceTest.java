@@ -76,6 +76,9 @@ class CashRegisterServiceTest {
         e.setMethodCode(method);
         e.setAmount(money(amount));
         e.setCreatedAt(Instant.now());
+        if ("SALE".equals(type)) {
+            e.setPayment(Payment.builder().status(PaymentStatus.CONFIRMED).build());
+        }
         return e;
     }
 
