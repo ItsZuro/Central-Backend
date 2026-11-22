@@ -253,6 +253,10 @@ public class AuthService {
         }
 
         User user = refreshToken.getUser();
+        if (tokenBlacklistService.tokenPredatesStaffPasswordReset(
+                user.getUsername(), jwtService.getIssuedAtInstant(refreshToken.getToken()))) {
+            throw new InvalidRefreshTokenException("La sesión fue revocada tras un cambio de contraseña.");
+        }
 
         tokenBlacklistService.blacklistToken(refreshToken.getToken(), user.getUsername(),
                 "refresh", refreshToken.getExpiryDate(), clientIp, userAgent);
