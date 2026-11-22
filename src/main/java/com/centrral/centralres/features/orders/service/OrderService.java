@@ -36,6 +36,8 @@ import com.centrral.centralres.features.orders.dto.orderdetail.response.OrderDet
 import com.centrral.centralres.features.orders.dto.payment.request.PaymentInOrderRequest;
 import com.centrral.centralres.features.orders.model.Order;
 import com.centrral.centralres.features.orders.model.OrderDetail;
+import com.centrral.centralres.features.orders.model.Payment;
+import com.centrral.centralres.features.orders.enums.PaymentStatus;
 import com.centrral.centralres.features.orders.model.OrderStatus;
 import com.centrral.centralres.features.orders.model.OrderStatusTranslation;
 import com.centrral.centralres.features.orders.model.OrderType;
@@ -227,6 +229,13 @@ public class OrderService {
                                 .orElseThrow(() -> new EntityNotFoundException("Estado inicial PENDING inexistente.")));
                 order.setEmployee(null);
 
+                // El delivery online aún no se cobra al crear el pedido.
+                // Bloquear pagos locales incluso si se modifica la petición HTTP.
+                if (order.getType() != null && "DELIVERY".equalsIgnoreCase(order.getType().getCode())
+                                && request.getPayments() != null && !request.getPayments().isEmpty()) {
+                        throw new IllegalArgumentException("Para delivery debes pagar en línea mediante Niubiz.");
+                }
+
                 // 2. Calcular Totales y Detalles
                 BigDecimal total = BigDecimal.ZERO;
                 Set<OrderDetail> details = new LinkedHashSet<>();
@@ -412,12 +421,19 @@ public class OrderService {
                         order.setDeliveryLongitude(addrDto.getLongitude());
                 }
 
-                order.setStatus(statusRepository.findById(request.getStatusId())
+                OrderStatus updatedStatus = statusRepository.findById(request.getStatusId())
                                 .orElseThrow(() -> new EntityNotFoundException(
-                                                "Estado de orden no encontrado con id: " + request.getStatusId())));
-                order.setType(typeRepository.findById(request.getTypeId())
+                                                "Estado de orden no encontrado con id: " + request.getStatusId()));
+                OrderType updatedType = typeRepository.findById(request.getTypeId())
                                 .orElseThrow(() -> new EntityNotFoundException(
-                                                "Tipo de orden no encontrado con id: " + request.getTypeId())));
+                                                "Tipo de orden no encontrado con id: " + request.getTypeId()));
+                if ("DELIVERY".equalsIgnoreCase(updatedType.getCode())
+                                && request.getPayments() != null && !request.getPayments().isEmpty()) {
+                        throw new IllegalStateException("Los pedidos delivery no aceptan pagos locales.");
+                }
+                ensureDeliveryPayment(order, updatedType.getCode(), updatedStatus.getCode());
+                order.setStatus(updatedStatus);
+                order.setType(updatedType);
                 order.setDate(LocalDateTime.now());
 
                 order.getDetails().forEach(detail -> applyInventoryMovement(detail.getProduct(), detail.getQuantity(),
@@ -475,6 +491,7 @@ public class OrderService {
                                                 "Estado de orden no encontrado con código: "
                                                                 + request.getNewStatusCode()));
 
+                ensureDeliveryPayment(order, order.getType().getCode(), newStatus.getCode());
                 order.setStatus(newStatus);
                 Order savedOrder = orderRepository.save(order);
 
@@ -557,6 +574,7 @@ public class OrderService {
                 orderRepository.delete(order);
         }
 
+        @Transactional
         public OrderResponse cancelOrder(Long id, User user, String lang) {
                 Order order = orderRepository.findById(id)
                                 .orElseThrow(() -> new EntityNotFoundException("Orden no encontrada"));
@@ -586,7 +604,7 @@ public class OrderService {
                         throw new SecurityException("El usuario no está autorizado para cancelar esta orden.");
                 }
 
-                if (!isAdmin && !Set.of("PENDING", "PENDING_CONFIRMATION").contains(currentStatus)) {
+                if (!isAdmin && !CustomerOrderPolicy.canCustomerCancel(currentStatus, false)) {
                         throw new IllegalStateException("Solo se pueden cancelar pedidos pendientes desde la cuenta del cliente.");
                 }
 
@@ -800,6 +818,18 @@ public class OrderService {
                                         .collect(Collectors.toList());
                 }
 
+                Payment displayPayment = order.getPayments() == null ? null : order.getPayments().stream()
+                                .sorted((left, right) -> {
+                                        int leftScore = left.getStatus() == PaymentStatus.CONFIRMED ? 1 : 0;
+                                        int rightScore = right.getStatus() == PaymentStatus.CONFIRMED ? 1 : 0;
+                                        return Integer.compare(rightScore, leftScore);
+                                }).findFirst().orElse(null);
+                boolean paid = order.getPayments() != null && order.getPayments().stream()
+                                .anyMatch(payment -> payment.getStatus() == PaymentStatus.CONFIRMED);
+                String paymentState = paid ? "CONFIRMED"
+                                : displayPayment != null && displayPayment.getStatus() != null
+                                        ? displayPayment.getStatus().name() : "PENDING";
+
                 OrderResponse.OrderResponseBuilder responseBuilder = OrderResponse.builder()
                                 .id(order.getId())
                                 .customerId(order.getCustomer().getId())
@@ -814,6 +844,11 @@ public class OrderService {
                                 .typeId(order.getType().getId())
                                 .typeName(getTypeName(order.getType(), lang))
                                 .total(order.getTotal())
+                                .paymentStatus(paymentState)
+                                .paymentMethodCode(displayPayment != null && displayPayment.getPaymentMethod() != null
+                                                ? displayPayment.getPaymentMethod().getCode() : null)
+                                .canCustomerCancel(CustomerOrderPolicy.canCustomerCancel(
+                                                order.getStatus().getCode(), paid))
                                 .details(order.getDetails().stream()
                                                 .map(d -> OrderDetailInOrderResponse.builder()
                                                                 .id(d.getId())
@@ -866,6 +901,15 @@ public class OrderService {
                 }
 
                 return responseBuilder.build();
+        }
+
+        private void ensureDeliveryPayment(Order order, String orderType, String targetStatus) {
+                if (CustomerOrderPolicy.requiresConfirmedDeliveryPayment(orderType, targetStatus)
+                                && (order.getPayments() == null || order.getPayments().stream()
+                                        .noneMatch(payment -> payment.getStatus() == PaymentStatus.CONFIRMED))) {
+                        throw new IllegalStateException(
+                                "No se puede preparar o despachar un delivery sin pago confirmado.");
+                }
         }
 
         private String normalizeLang(String lang) {
