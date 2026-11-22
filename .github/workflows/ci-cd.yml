@@ -37,6 +37,15 @@ jobs:
       - name: Ejecutar pruebas y empaquetado
         run: ./mvnw --batch-mode --no-transfer-progress clean verify
 
+      - name: Guardar JAR validado para ECR
+        if: github.ref == 'refs/heads/feature/cloud-final-project'
+        uses: actions/upload-artifact@v4
+        with:
+          name: central-backend-tested-jar
+          path: target/centralres-0.0.1-SNAPSHOT.jar
+          if-no-files-found: error
+          retention-days: 3
+
   container:
     name: Imagen Docker, health check y publicación
     needs: quality
@@ -157,13 +166,19 @@ jobs:
         id: ecr-login
         uses: aws-actions/amazon-ecr-login@v2
 
+      - name: Descargar JAR compilado y validado por quality
+        uses: actions/download-artifact@v4
+        with:
+          name: central-backend-tested-jar
+          path: target
+
       # El repositorio ECR tiene etiquetas inmutables: no usar 'latest'.
       # El identificador de intento evita colisiones también al reejecutar un workflow.
       - name: Construir y publicar imagen Docker
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: ./Dockerfile
+          file: ./Dockerfile.ecr
           push: true
           tags: ${{ steps.ecr-login.outputs.registry }}/central-backend:${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
 
