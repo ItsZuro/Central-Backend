@@ -438,6 +438,7 @@ public class UserService {
         authService.revokeAllRefreshTokens(target);
         tokenBlacklistService.revokeIssuedAccessTokensForUser(
                 target.getUsername(), "Restablecimiento de contraseña por administrador");
+        tokenBlacklistService.recordStaffPasswordReset(target.getUsername());
 
         log.info("Contraseña de personal restablecida por adminId={} para userId={}",
                 admin.getId(), target.getId());
