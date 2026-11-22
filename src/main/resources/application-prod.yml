@@ -15,6 +15,10 @@ spring:
     show-sql: false
 
 app:
+  # Dominio de CloudFront del backend, no el ALB interno.
+  # Puede sustituirse por un dominio propio mediante la variable de entorno.
+  file:
+    public-api-origin: ${MEDIA_PUBLIC_API_ORIGIN:https://d3gjtcfgv1ut3w.cloudfront.net}
   demo:
     seed-users: false
     seed-tables: false
