@@ -25,6 +25,7 @@ import com.centrral.centralres.core.dto.response.PagedResponse;
 import com.centrral.centralres.core.security.model.User;
 import com.centrral.centralres.features.customers.model.Customer;
 import com.centrral.centralres.features.customers.repository.CustomerRepository;
+import com.centrral.centralres.features.employees.enums.EmploymentStatus;
 import com.centrral.centralres.features.employees.model.Employee;
 import com.centrral.centralres.features.employees.repository.EmployeeRepository;
 import com.centrral.centralres.features.invoices.service.InvoiceGenerator;
@@ -33,6 +34,7 @@ import com.centrral.centralres.features.orders.dto.order.request.DeliveryAddress
 import com.centrral.centralres.features.orders.dto.order.request.OrderRequest;
 import com.centrral.centralres.features.orders.dto.order.request.UpdateLocationRequest;
 import com.centrral.centralres.features.orders.dto.order.request.UpdateStatusRequest;
+import com.centrral.centralres.features.orders.dto.order.response.DriverOptionResponse;
 import com.centrral.centralres.features.orders.dto.order.response.OrderResponse;
 import com.centrral.centralres.features.orders.dto.order.response.DeliveryQuoteResponse;
 import com.centrral.centralres.features.orders.dto.order.response.OrderStatusStepResponse;
@@ -187,6 +189,25 @@ public class OrderService {
                 orderRepository.save(order);
 
                 return mapToResponse(order, lang);
+        }
+
+        /**
+         * Repartidores habilitados para asignación. No expone salarios,
+         * documentos, correos ni usuarios que no sean de reparto.
+         */
+        @Transactional(readOnly = true)
+        public List<DriverOptionResponse> getEligibleDrivers() {
+                return employeeRepository.findAll().stream()
+                        .filter(employee -> employee.getStatus() == EmploymentStatus.ACTIVE)
+                        .filter(employee -> employee.getUser() != null
+                                && employee.getUser().isEnabled()
+                                && employee.getUser().hasRole("ROLE_DRIVER"))
+                        .map(employee -> new DriverOptionResponse(
+                                employee.getId(),
+                                employee.getUser().getFullName(),
+                                employee.getUser().getUsername()))
+                        .sorted((a, b) -> a.fullName().compareToIgnoreCase(b.fullName()))
+                        .toList();
         }
 
         @Transactional(readOnly = true)
@@ -563,6 +584,11 @@ public class OrderService {
                         && paymentRepository.existsByOrder_IdAndStatus(id, PaymentStatus.CONFIRMED)) {
                         throw new ConflictException("Un pedido cobrado no puede anularse sin un proceso de devolución auditado.");
                 }
+                if ("DELIVERY".equalsIgnoreCase(order.getType().getCode())
+                        && Set.of("OUT_FOR_DELIVERY", "DELIVERED").contains(newStatus.getCode())) {
+                        throw new ConflictException(
+                                "El reparto debe iniciarse y confirmarse desde la cuenta del repartidor asignado.");
+                }
                 ensureDeliveryPayment(order, order.getType().getCode(), newStatus.getCode());
                 order.setStatus(newStatus);
                 Order savedOrder = orderRepository.save(order);
@@ -579,15 +605,25 @@ public class OrderService {
         public OrderResponse assignDriver(Long id, AssignDriverRequest request, String lang) {
                 log.info("Asignando repartidor {} a la orden {}", request.getEmployeeId(), id);
 
-                Order order = orderRepository.findById(id)
+                // Bloqueo transaccional: dos gerentes no pueden asignar simultáneamente
+                // un mismo pedido ni reemplazar una ruta ya iniciada.
+                Order order = orderRepository.findByIdForUpdate(id)
                                 .orElseThrow(() -> new EntityNotFoundException("Orden no encontrada con id: " + id));
 
                 if (order.getType() == null || !"DELIVERY".equalsIgnoreCase(order.getType().getCode())) {
                         throw new IllegalArgumentException("Solo se pueden asignar repartidores a pedidos delivery.");
                 }
-                if (Set.of("CANCELLED", "FAILED", "DELIVERED", "COMPLETED", "OUT_FOR_DELIVERY")
-                                .contains(order.getStatus().getCode())) {
-                        throw new IllegalStateException("El pedido no admite asignación de repartidor en su estado actual.");
+                String status = order.getStatus().getCode();
+                if (Set.of("CANCELLED", "FAILED", "DELIVERED", "COMPLETED", "REFUNDED")
+                                .contains(status)) {
+                        throw new ConflictException("El pedido ya terminó y no admite asignación.");
+                }
+                // Recuperación controlada: versiones antiguas permitían marcar
+                // OUT_FOR_DELIVERY sin empleado. En ese único caso se permite
+                // vincularlo sin alterar el estado ni inventar una entrega.
+                if ("OUT_FOR_DELIVERY".equals(status) && order.getEmployee() != null) {
+                        throw new ConflictException(
+                                "El reparto ya está en ruta con un responsable. No puede reasignarse.");
                 }
 
                 Employee driver = employeeRepository.findById(request.getEmployeeId())
@@ -596,21 +632,19 @@ public class OrderService {
                                                                 + request.getEmployeeId()));
 
                 // Solo se puede asignar un reparto a un empleado con el rol DRIVER.
-                if (driver.getUser() == null || driver.getUser().getRoles() == null
-                                || driver.getUser().getRoles().stream()
-                                                .noneMatch(role -> "ROLE_DRIVER".equals(role.getName()))) {
+                if (driver.getUser() == null || !driver.getUser().hasRole("ROLE_DRIVER")) {
                         throw new IllegalArgumentException("El empleado seleccionado no tiene permisos de reparto.");
+                }
+                if (!driver.getUser().isEnabled() || driver.getStatus() != EmploymentStatus.ACTIVE) {
+                        throw new ConflictException("Selecciona un repartidor activo con una cuenta habilitada.");
                 }
 
                 order.setEmployee(driver);
                 Order savedOrder = orderRepository.save(order);
 
-                // TODO: Enviar notificación al cliente "¡Tu pedido está en camino!"
-                // notificationProducer.sendOrderOutForDelivery(savedOrder);
-
-                log.info("Repartidor {} asignado a la orden {}", driver.getId(), savedOrder.getId());
-
-                return getTrackingInfo(savedOrder.getId(), lang);
+                log.info("Repartidor {} asignado a la orden {} (estado {})",
+                                driver.getId(), savedOrder.getId(), status);
+                return mapToResponse(savedOrder, lang);
         }
 
         /**
