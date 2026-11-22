@@ -17,6 +17,7 @@ import java.util.HexFormat;
 
 import javax.imageio.ImageIO;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.springframework.stereotype.Service;
@@ -44,6 +45,9 @@ public class FileService {
     private final FileMetadataRepository fileRepository;
     private final UserRepository userRepository;
     private final FileProperties fileProperties;
+
+    @Value("${app.file.public-api-origin:}")
+    private String publicApiOrigin;
 
     private long getMaxFileSize() {
         String size = fileProperties.getMaxSize().toUpperCase();
@@ -124,10 +128,13 @@ public class FileService {
 
             FileMetadata saved = fileRepository.save(metadata);
             if ("products".equals(folder)) {
-                saved.setUrl(ServletUriComponentsBuilder.fromCurrentContextPath()
-                        .path("/api/v1/files/product-images/")
-                        .path(saved.getId().toString())
-                        .toUriString());
+                String publicUrl = publicApiOrigin != null && !publicApiOrigin.isBlank()
+                        ? publicApiOrigin.replaceAll("/+$", "") + "/api/v1/files/product-images/" + saved.getId()
+                        : ServletUriComponentsBuilder.fromCurrentContextPath()
+                                .path("/api/v1/files/product-images/")
+                                .path(saved.getId().toString())
+                                .toUriString();
+                saved.setUrl(publicUrl);
                 saved = fileRepository.save(saved);
             }
             return saved;
