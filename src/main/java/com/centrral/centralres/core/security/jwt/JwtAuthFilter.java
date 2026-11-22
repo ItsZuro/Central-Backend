@@ -82,7 +82,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         // Deniega también JWT renovados antes del cambio de contraseña, incluso
         // cuando el token concreto no tuviera una entrada de emisión en auditoría.
-        if (tokenBlacklistService.tokenPredatesStaffPasswordReset(
+        if (tokenBlacklistService.tokenPredatesStaffSessionRevocation(
                 subject, jwtService.getIssuedAtInstant(token))) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             return;
@@ -90,6 +90,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         if (SecurityContextHolder.getContext().getAuthentication() == null) {
             UserDetails user = userDetailsService.loadUserByUsername(subject);
+            if (!user.isEnabled() || !user.isAccountNonLocked()) {
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                return;
+            }
 
             UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(user, null,
                     user.getAuthorities());
