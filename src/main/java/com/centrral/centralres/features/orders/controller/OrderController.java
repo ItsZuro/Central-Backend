@@ -151,7 +151,7 @@ public class OrderController {
     }
 
     @PostMapping("/{id}/payments/local")
-    @PreAuthorize("hasAnyRole('CASHIER', 'ADMIN', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<ApiResponse<Void>> addLocalPayment(
             @PathVariable Long id,
             @Valid @RequestBody PaymentInOrderRequest request) {
@@ -190,7 +190,7 @@ public class OrderController {
     }
 
     @PutMapping("/{id}/status")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'WAITER', 'CASHIER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'WAITER')")
     public ResponseEntity<ApiResponse<OrderResponse>> updateStatus(
             @PathVariable Long id,
             @Valid @RequestBody UpdateStatusRequest request,
