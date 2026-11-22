@@ -253,7 +253,10 @@ public class AuthService {
         }
 
         User user = refreshToken.getUser();
-        if (tokenBlacklistService.tokenPredatesStaffPasswordReset(
+        if (!user.isEnabled()) {
+            throw new InvalidRefreshTokenException("La cuenta está desactivada. Contacta al administrador.");
+        }
+        if (tokenBlacklistService.tokenPredatesStaffSessionRevocation(
                 user.getUsername(), jwtService.getIssuedAtInstant(refreshToken.getToken()))) {
             throw new InvalidRefreshTokenException("La sesión fue revocada tras un cambio de contraseña.");
         }
