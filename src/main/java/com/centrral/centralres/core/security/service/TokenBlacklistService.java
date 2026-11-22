@@ -6,6 +6,7 @@ import java.security.NoSuchAlgorithmException;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
+import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.centrral.centralres.core.security.dto.BlacklistedToken;
@@ -75,6 +76,35 @@ public class TokenBlacklistService {
         for (TokenAudit audit : issued) {
             blacklistToken(audit.getToken(), username, reason, audit.getExpiresAt(), null, null);
         }
+    }
+
+    private static final String CREDENTIAL_RESET_REASON = "STAFF_PASSWORD_RESET";
+
+    /**
+     * Registra un límite temporal para el JWT del empleado, incluyendo tokens
+     * anteriores emitidos por refresh que no tuvieran auditoría de emisión.
+     * Este registro no contiene ni la contraseña ni un token de autenticación.
+     */
+    @Transactional
+    public void recordStaffPasswordReset(String username) {
+        Instant now = Instant.now();
+        repository.save(TokenAudit.builder()
+                .token("credentials-reset-" + UUID.randomUUID())
+                .username(username)
+                .eventType(TokenEventType.REVOKED)
+                .timestamp(now)
+                .expiresAt(now.plusSeconds(86_400L * 365))
+                .reason(CREDENTIAL_RESET_REASON)
+                .build());
+    }
+
+    @Transactional(readOnly = true)
+    public boolean tokenPredatesStaffPasswordReset(String username, Instant issuedAt) {
+        if (issuedAt == null || username == null || username.isBlank()) return true;
+        return repository.findFirstByUsernameAndEventTypeAndReasonOrderByTimestampDesc(
+                        username, TokenEventType.REVOKED, CREDENTIAL_RESET_REASON)
+                .map(marker -> !issuedAt.isAfter(marker.getTimestamp()))
+                .orElse(false);
     }
 
     private static String fingerprint(String token) {
