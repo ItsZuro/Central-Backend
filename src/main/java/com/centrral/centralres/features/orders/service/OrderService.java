@@ -360,21 +360,35 @@ public class OrderService {
                                 .orElseThrow(() -> new EntityNotFoundException(
                                                 "Perfil de empleado no encontrado para el cajero autenticado"));
 
-                if (request.getCustomerId() == null) {
-                        throw new IllegalArgumentException("El customerId es obligatorio para una venta POS.");
-                }
-                Customer customer = customerRepository.findById(request.getCustomerId())
+                // A walk-in customer has no account. Only associate a Customer when the
+                // buyer explicitly identifies as a registered client.
+                Customer customer = request.getCustomerId() == null ? null
+                        : customerRepository.findById(request.getCustomerId())
                                 .orElseThrow(() -> new EntityNotFoundException(
                                                 "Cliente no encontrado con id: " + request.getCustomerId()));
 
-                request.setEmployeeId(cashierEmployee.getId());
-
-                Order order = buildOrderBase(request, customer);
-                if (order.getType() != null && "DELIVERY".equalsIgnoreCase(order.getType().getCode())
-                                && request.getPayments() != null && !request.getPayments().isEmpty()) {
-                        throw new IllegalArgumentException("Delivery solo admite pago online mediante Niubiz.");
+                // A POS sale never takes payment instructions nor its status from the browser.
+                // Payment is collected later through /cash-register, inside the cashier shift.
+                if (request.getPayments() != null && !request.getPayments().isEmpty()) {
+                        throw new com.centrral.centralres.core.exceptions.BadRequestException(
+                                "Registra el cobro desde caja, no al crear la venta presencial.");
                 }
-                ensureDeliveryPayment(order, order.getType().getCode(), order.getStatus().getCode());
+                if (request.getDocuments() != null && !request.getDocuments().isEmpty()) {
+                        throw new com.centrral.centralres.core.exceptions.BadRequestException(
+                                "Los comprobantes se generan después de confirmar el pago.");
+                }
+                OrderType posType = typeRepository.findById(request.getTypeId())
+                        .orElseThrow(() -> new EntityNotFoundException("Tipo de pedido inexistente."));
+                if (!Set.of("DINE_IN", "TAKE_AWAY").contains(posType.getCode())) {
+                        throw new com.centrral.centralres.core.exceptions.BadRequestException(
+                                "La venta presencial solo admite salón o para llevar.");
+                }
+
+                request.setEmployeeId(cashierEmployee.getId());
+                Order order = buildOrderBase(request, customer);
+                order.setStatus(statusRepository.findByCode("PENDING_CONFIRMATION")
+                        .orElseThrow(() -> new EntityNotFoundException(
+                                "Estado inicial de venta presencial no configurado.")));
 
                 BigDecimal total = BigDecimal.ZERO;
                 Set<OrderDetail> details = new LinkedHashSet<>();
@@ -445,7 +459,13 @@ public class OrderService {
                         throw new ConflictException("El pedido ya fue cobrado y no puede editarse sin una devolución auditada.");
                 }
 
-                order.setCustomer(customerRepository.findById(request.getCustomerId())
+                if (request.getCustomerId() == null
+                        && order.getType() != null && "DELIVERY".equals(order.getType().getCode())) {
+                        throw new com.centrral.centralres.core.exceptions.BadRequestException(
+                                "El delivery requiere un cliente identificado.");
+                }
+                order.setCustomer(request.getCustomerId() == null ? null
+                        : customerRepository.findById(request.getCustomerId())
                                 .orElseThrow(() -> new EntityNotFoundException(
                                                 "Cliente no encontrado con id: " + request.getCustomerId())));
                 order.setEmployee(request.getEmployeeId() != null ? employeeRepository.findById(request.getEmployeeId())
@@ -907,8 +927,9 @@ public class OrderService {
 
                 OrderResponse.OrderResponseBuilder responseBuilder = OrderResponse.builder()
                                 .id(order.getId())
-                                .customerId(order.getCustomer().getId())
-                                .customerName(order.getCustomer().getUser().getFullName())
+                                .customerId(order.getCustomer() != null ? order.getCustomer().getId() : null)
+                                .customerName(order.getCustomer() != null && order.getCustomer().getUser() != null
+                                        ? order.getCustomer().getUser().getFullName() : "Consumidor final")
                                 .employeeId(order.getEmployee() != null ? order.getEmployee().getId() : null)
                                 .employeeName(order.getEmployee() != null ? order.getEmployee().getUser().getFullName()
                                                 : null)
