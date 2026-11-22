@@ -19,6 +19,9 @@ public interface TokenAuditRepository extends JpaRepository<TokenAudit, Long> {
 
     List<TokenAudit> findByUsernameAndEventTypeAndExpiresAtAfter(
             String username, TokenEventType eventType, Instant now);
+
+    Optional<TokenAudit> findFirstByUsernameAndEventTypeAndReasonOrderByTimestampDesc(
+            String username, TokenEventType eventType, String reason);
     Optional<TokenAudit> findFirstByTokenAndEventTypeAndExpiresAtAfterOrderByTimestampDesc(
             String token, TokenEventType eventType, Instant now);
 
