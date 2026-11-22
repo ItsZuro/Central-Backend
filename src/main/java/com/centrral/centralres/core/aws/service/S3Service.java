@@ -15,6 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetUrlRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
@@ -79,6 +80,15 @@ public class S3Service {
         } catch (Exception e) {
             throw new RuntimeException("Error subiendo archivo a S3", e);
         }
+    }
+
+    /** El bucket de medios permanece privado: el backend entrega imágenes públicas de productos. */
+    public byte[] readFile(String key) {
+        return s3Client.getObjectAsBytes(GetObjectRequest.builder()
+                        .bucket(bucketName)
+                        .key(key)
+                        .build())
+                .asByteArray();
     }
 
     public void deleteFile(String key) {
