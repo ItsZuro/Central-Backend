@@ -1,5 +1,10 @@
 package com.centrral.centralres.core.security.dto;
 
+import java.util.List;
+
+import com.centrral.centralres.features.employees.dto.schedule.request.StaffShiftRequest;
+
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -32,4 +37,8 @@ public class CreateStaffUserRequest {
 
     @NotBlank
     private String role;
+
+    /** Obligatorio para roles operativos; no aplica al administrador. */
+    @Valid
+    private List<@Valid StaffShiftRequest> schedules;
 }
