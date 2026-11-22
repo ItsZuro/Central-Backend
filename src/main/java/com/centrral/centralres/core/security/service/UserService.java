@@ -38,6 +38,7 @@ import com.centrral.centralres.core.security.model.Role;
 import com.centrral.centralres.core.security.model.User;
 import com.centrral.centralres.core.security.repository.UserRepository;
 import com.centrral.centralres.core.security.repository.RoleRepository;
+import com.centrral.centralres.features.employees.service.StaffEmployeeProvisioner;
 
 import lombok.RequiredArgsConstructor;
 
@@ -51,6 +52,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final FileService fileService;
+    private final StaffEmployeeProvisioner staffEmployeeProvisioner;
     // private final NotificationProducer notificationProducer;
 
     @Value("${app.frontend.url}")
@@ -160,6 +162,7 @@ public class UserService {
                 .build();
 
         User saved = userRepository.save(staff);
+        staffEmployeeProvisioner.provision(saved, request.getRole());
         return getUserByUsername(saved.getUsername());
     }
 
