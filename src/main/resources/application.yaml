@@ -73,7 +73,7 @@ app:
     refresh-token-expiration: 1209600000
   file:
     allowed-extensions: [".jpg", ".jpeg", ".png", ".webp", ".pdf", ".mp4", ".mp3"]
-    allowed-folders: ["products", "profiles", "general"]
+    allowed-folders: ["products", "categories", "profiles", "general"]
     max-size: 15MB
 
 # Integraciones Externas
