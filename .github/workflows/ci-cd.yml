@@ -136,7 +136,7 @@ jobs:
   ecr-publish:
     name: Publicar imagen validada en Amazon ECR
     needs: container
-    if: github.event_name == 'push' && github.ref == 'refs/heads/feature/cloud-final-project'
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/feature/cloud-final-project'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
@@ -169,3 +169,106 @@ jobs:
 
       - name: Mostrar referencia publicada
         run: echo "Imagen publicada en ECR con etiqueta $GITHUB_SHA-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+
+  ecs-deploy:
+    name: Desplegar revisión validada en Amazon ECS
+    needs: ecr-publish
+    # Solo se activa cuando el propietario autoriza IAM y habilita la variable.
+    if: github.ref == 'refs/heads/feature/cloud-final-project' && vars.ENABLE_BACKEND_ECS_DEPLOY == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      AWS_REGION: us-east-1
+      AWS_ACCOUNT_ID: "431223004152"
+      ECS_CLUSTER: central-cluster
+      ECS_SERVICE: central-backend-service
+      ECS_TASK_FAMILY: central-backend-task
+      ECS_CONTAINER: central-backend
+      ECR_REPOSITORY: central-backend
+
+    steps:
+      - name: Obtener credenciales AWS mediante GitHub OIDC
+        uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          role-to-assume: arn:aws:iam::431223004152:role/central-github-ecr-push-role
+          aws-region: us-east-1
+          role-session-name: restaurant-central-ecs-${{ github.run_id }}
+
+      - name: Registrar revisión y actualizar solo el contenedor backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+          test "$ACCOUNT" = "$AWS_ACCOUNT_ID" || { echo "Cuenta AWS inesperada" >&2; exit 1; }
+
+          OLD_TASK=$(aws ecs describe-services \
+            --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE" \
+            --region "$AWS_REGION" \
+            --query 'services[0].taskDefinition' --output text)
+          if [[ -z "$OLD_TASK" || "$OLD_TASK" == "None" ]]; then
+            echo "El servicio ECS no existe o no tiene definición de tarea" >&2
+            exit 1
+          fi
+
+          aws ecs describe-task-definition \
+            --task-definition "$OLD_TASK" --region "$AWS_REGION" \
+            --query taskDefinition --output json > /tmp/central-current-task.json
+
+          jq -e --arg family "$ECS_TASK_FAMILY" --arg container "$ECS_CONTAINER" \
+            '.family == $family and ([.containerDefinitions[].name] | index($container) != null)' \
+            /tmp/central-current-task.json > /dev/null || {
+              echo "El nombre de la familia o del contenedor no coincide con ECS" >&2
+              exit 1
+            }
+
+          IMAGE="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPOSITORY:$GITHUB_SHA-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+
+          jq --arg image "$IMAGE" --arg container "$ECS_CONTAINER" '
+            del(.taskDefinitionArn, .revision, .status, .requiresAttributes,
+                .compatibilities, .registeredAt, .registeredBy, .deregisteredAt)
+            | .containerDefinitions |= map(
+                if .name == $container then .image = $image else . end
+              )
+          ' /tmp/central-current-task.json > /tmp/central-new-task.json
+
+          NEW_TASK=$(aws ecs register-task-definition \
+            --cli-input-json file:///tmp/central-new-task.json \
+            --region "$AWS_REGION" \
+            --query 'taskDefinition.taskDefinitionArn' --output text)
+
+          echo "Actualizando $ECS_CLUSTER/$ECS_SERVICE a $NEW_TASK"
+          aws ecs update-service \
+            --cluster "$ECS_CLUSTER" --service "$ECS_SERVICE" \
+            --task-definition "$NEW_TASK" --region "$AWS_REGION" > /dev/null
+
+          if ! aws ecs wait services-stable \
+            --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE" \
+            --region "$AWS_REGION"; then
+            echo "ECS no se estabilizó. Restaurando la revisión previa: $OLD_TASK" >&2
+            aws ecs update-service \
+              --cluster "$ECS_CLUSTER" --service "$ECS_SERVICE" \
+              --task-definition "$OLD_TASK" --region "$AWS_REGION" > /dev/null || true
+            exit 1
+          fi
+
+          ACTUAL=$(aws ecs describe-services \
+            --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE" \
+            --region "$AWS_REGION" \
+            --query 'services[0].taskDefinition' --output text)
+          RUNNING=$(aws ecs describe-services \
+            --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE" \
+            --region "$AWS_REGION" \
+            --query 'services[0].runningCount' --output text)
+          DESIRED=$(aws ecs describe-services \
+            --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE" \
+            --region "$AWS_REGION" \
+            --query 'services[0].desiredCount' --output text)
+
+          if [[ "$ACTUAL" != "$NEW_TASK" || "$RUNNING" -lt 1 || "$RUNNING" -ne "$DESIRED" ]]; then
+            echo "ECS no terminó con la revisión o cantidad de tareas esperada" >&2
+            exit 1
+          fi
+          echo "ECS actualizado: $ACTUAL ($RUNNING/$DESIRED tareas)"
