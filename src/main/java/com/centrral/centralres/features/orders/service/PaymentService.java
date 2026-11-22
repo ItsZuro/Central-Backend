@@ -13,6 +13,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.centrral.centralres.core.config.NiubizConfig;
+import com.centrral.centralres.core.exceptions.ConflictException;
+import com.centrral.centralres.features.orders.repository.CashEntryRepository;
 import com.centrral.centralres.core.security.repository.PaymentProfileRepository;
 import com.centrral.centralres.features.orders.dto.niubiz.NiubizDTO;
 import com.centrral.centralres.features.orders.dto.payment.request.PaymentInOrderRequest;
@@ -40,6 +42,7 @@ import lombok.extern.slf4j.Slf4j;
 public class PaymentService {
 
         private final PaymentRepository paymentRepository;
+        private final CashEntryRepository cashEntryRepository;
         private final OrderRepository orderRepository;
         private final PaymentMethodRepository paymentMethodRepository;
         private final PaymentProfileRepository paymentProfileRepository;
@@ -187,6 +190,11 @@ public class PaymentService {
         public PaymentResponse update(Long id, PaymentUpdateRequest request) {
                 Payment payment = paymentRepository.findById(id)
                                 .orElseThrow(() -> new EntityNotFoundException("Pago no encontrado con id: " + id));
+                if (cashEntryRepository.existsByPayment_Id(id)
+                        || payment.getStatus() == PaymentStatus.CONFIRMED
+                        || request.getStatus() == PaymentStatus.CONFIRMED) {
+                        throw new ConflictException("Los pagos confirmados o contabilizados requieren un procedimiento de devolución auditado.");
+                }
 
                 if (request.getTransactionCode() != null) {
                         payment.setTransactionCode(request.getTransactionCode());
@@ -202,6 +210,10 @@ public class PaymentService {
         public void delete(Long id) {
                 Payment payment = paymentRepository.findById(id)
                                 .orElseThrow(() -> new EntityNotFoundException("Pago no encontrado con id: " + id));
+                if (cashEntryRepository.existsByPayment_Id(id)
+                        || payment.getStatus() == PaymentStatus.CONFIRMED) {
+                        throw new ConflictException("No se pueden eliminar pagos confirmados o incluidos en caja.");
+                }
 
                 payment.setStatus(PaymentStatus.CANCELLED);
                 paymentRepository.save(payment);
