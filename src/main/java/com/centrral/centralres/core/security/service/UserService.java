@@ -39,6 +39,8 @@ import com.centrral.centralres.core.security.model.User;
 import com.centrral.centralres.core.security.repository.UserRepository;
 import com.centrral.centralres.core.security.repository.RoleRepository;
 import com.centrral.centralres.features.employees.service.StaffEmployeeProvisioner;
+import com.centrral.centralres.features.employees.service.ScheduleService;
+import com.centrral.centralres.features.employees.dto.schedule.request.StaffShiftRequest;
 
 import lombok.RequiredArgsConstructor;
 
@@ -53,6 +55,7 @@ public class UserService {
     private final RoleRepository roleRepository;
     private final FileService fileService;
     private final StaffEmployeeProvisioner staffEmployeeProvisioner;
+    private final ScheduleService scheduleService;
     // private final NotificationProducer notificationProducer;
 
     @Value("${app.frontend.url}")
@@ -163,7 +166,37 @@ public class UserService {
 
         User saved = userRepository.save(staff);
         staffEmployeeProvisioner.provision(saved, request.getRole());
+        if (!"ROLE_ADMIN".equals(request.getRole())) {
+            // La cuenta y su horario se registran en la misma transacción.
+            // Si el horario es inválido, se revierte también la creación de cuenta.
+            scheduleService.replaceWeeklyScheduleForUser(saved.getId(), request.getSchedules());
+        }
         return getUserByUsername(saved.getUsername());
+    }
+
+    @Transactional(readOnly = true)
+    public List<StaffShiftRequest> getStaffSchedule(User requestingUser, Long userId) {
+        requireStaffScheduleAdmin(requestingUser, userId);
+        return scheduleService.getWeeklyScheduleForUser(userId);
+    }
+
+    @Transactional
+    public List<StaffShiftRequest> updateStaffSchedule(User requestingUser, Long userId,
+                                                         List<StaffShiftRequest> shifts) {
+        requireStaffScheduleAdmin(requestingUser, userId);
+        return scheduleService.replaceWeeklyScheduleForUser(userId, shifts);
+    }
+
+    private void requireStaffScheduleAdmin(User requestingUser, Long userId) {
+        if (requestingUser == null || !requestingUser.hasRole("ROLE_ADMIN")) {
+            throw new AccessDeniedException("Solo el administrador puede administrar horarios.");
+        }
+        User target = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException("Usuario no encontrado"));
+        if (target.hasRole("ROLE_CLIENT") || target.hasRole("ROLE_SUPPLIER")
+                || target.hasRole("ROLE_ADMIN")) {
+            throw new AccessDeniedException("Los horarios solo se administran para personal operativo.");
+        }
     }
 
     @Transactional
