@@ -19,6 +19,7 @@ import com.centrral.centralres.features.customers.repository.ReservationReposito
 import com.centrral.centralres.features.customers.repository.ReviewRepository;
 import com.centrral.centralres.features.orders.model.Order;
 import com.centrral.centralres.features.orders.repository.OrderRepository;
+import com.centrral.centralres.features.orders.repository.OrderDetailRepository;
 import com.centrral.centralres.features.products.model.Product;
 import com.centrral.centralres.features.products.repository.ProductRepository;
 
@@ -33,6 +34,7 @@ public class ReviewService {
     private final ReviewRepository reviewRepository;
     private final CustomerRepository customerRepository;
     private final OrderRepository orderRepository;
+    private final OrderDetailRepository orderDetailRepository;
     private final ReservationRepository reservationRepository;
     private final ProductRepository productRepository;
 
@@ -84,6 +86,16 @@ public class ReviewService {
         return exists;
     }
 
+    public boolean canReviewProduct(User user, Long productId) {
+        if (user == null || productId == null) {
+            return false;
+        }
+        return customerRepository.findByUserId(user.getId())
+                .map(customer -> orderDetailRepository.existsCompletedPurchase(productId, customer.getId())
+                        && !reviewRepository.existsByCustomer_IdAndProduct_Id(customer.getId(), productId))
+                .orElse(false);
+    }
+
     public ReviewResponse createReview(ReviewRequest dto, User user) {
         Customer customer = customerRepository.findByUserId(user.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado para el usuario autenticado"));
@@ -121,6 +133,10 @@ public class ReviewService {
         if (dto.getProductId() != null) {
             if (reviewRepository.existsByCustomer_IdAndProduct_Id(customer.getId(), dto.getProductId())) {
                 throw new IllegalArgumentException("Ya has enviado una reseña para este producto.");
+            }
+            if (!orderDetailRepository.existsCompletedPurchase(dto.getProductId(), customer.getId())) {
+                throw new AccessDeniedException(
+                        "Solo puedes reseñar un producto que hayas comprado en un pedido entregado o completado.");
             }
         }
 
