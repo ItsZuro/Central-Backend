@@ -91,6 +91,7 @@ class OrderServiceWalkInTest {
         Employee employee = Employee.builder().user(cashier).build();
         employee.setId(8L);
         when(employeeRepository.findByUserId(17L)).thenReturn(Optional.of(employee));
+        when(employeeRepository.findById(8L)).thenReturn(Optional.of(employee));
         when(cashShiftRepository.findFirstByCashierUserIdAndClosedAtIsNull(17L))
                 .thenReturn(Optional.of(new CashShift()));
         when(statusRepository.findById(4L)).thenReturn(Optional.of(
