@@ -88,7 +88,8 @@ class OrderServiceWalkInTest {
         detail.setQuantity(2);
         request.setDetails(List.of(detail));
 
-        Employee employee = Employee.builder().id(8L).user(cashier).build();
+        Employee employee = Employee.builder().user(cashier).build();
+        employee.setId(8L);
         when(employeeRepository.findByUserId(17L)).thenReturn(Optional.of(employee));
         when(cashShiftRepository.findFirstByCashierUserIdAndClosedAtIsNull(17L))
                 .thenReturn(Optional.of(new CashShift()));
