@@ -19,6 +19,7 @@ import org.springframework.web.multipart.MultipartFile;
 import com.centrral.centralres.core.security.dto.ApiResponse;
 import com.centrral.centralres.core.security.dto.ChanguePasswordRequest;
 import com.centrral.centralres.core.security.dto.AdminResetStaffPasswordRequest;
+import com.centrral.centralres.core.security.dto.StaffAccountStatusRequest;
 import com.centrral.centralres.core.security.dto.CreateStaffUserRequest;
 import com.centrral.centralres.core.security.dto.UpdateProfileRequest;
 import com.centrral.centralres.core.security.dto.UpdateProfileResponse;
@@ -85,6 +86,17 @@ public class UserController {
             @Valid @RequestBody List<@Valid StaffShiftRequest> shifts) {
         List<StaffShiftRequest> saved = userService.updateStaffSchedule(requestingUser, id, shifts);
         return ResponseEntity.ok(new ApiResponse<>(true, "Horario de personal actualizado", saved));
+    }
+
+    @PatchMapping("/admin/{id}/status")
+    public ResponseEntity<ApiResponse<UserProfileResponse>> changeStaffStatus(
+            @AuthenticationPrincipal User requestingUser,
+            @PathVariable Long id,
+            @Valid @RequestBody StaffAccountStatusRequest request) {
+        UserProfileResponse updated = userService.changeStaffAccountStatus(requestingUser, id, request);
+        return ResponseEntity.ok(new ApiResponse<>(true,
+                request.getEnabled() ? "Cuenta de personal reactivada" : "Cuenta de personal dada de baja",
+                updated));
     }
 
     @PutMapping("/admin/{id}/reset-password")
