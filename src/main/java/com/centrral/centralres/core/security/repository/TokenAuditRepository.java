@@ -16,6 +16,9 @@ import jakarta.transaction.Transactional;
 public interface TokenAuditRepository extends JpaRepository<TokenAudit, Long> {
 
     boolean existsByTokenAndEventTypeAndExpiresAtAfter(String token, TokenEventType eventType, Instant now);
+
+    List<TokenAudit> findByUsernameAndEventTypeAndExpiresAtAfter(
+            String username, TokenEventType eventType, Instant now);
     Optional<TokenAudit> findFirstByTokenAndEventTypeAndExpiresAtAfterOrderByTimestampDesc(
             String token, TokenEventType eventType, Instant now);
 
