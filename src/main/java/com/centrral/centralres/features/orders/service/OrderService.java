@@ -12,11 +12,14 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.centrral.centralres.core.config.TaxConfig;
+import com.centrral.centralres.core.dto.response.PagedResponse;
 import com.centrral.centralres.core.security.model.User;
 import com.centrral.centralres.features.customers.model.Customer;
 import com.centrral.centralres.features.customers.repository.CustomerRepository;
@@ -206,6 +209,23 @@ public class OrderService {
                 order.setStatus(statusRepository.findByCode(newCode)
                         .orElseThrow(() -> new EntityNotFoundException("Estado de entrega inexistente.")));
                 return mapToResponse(orderRepository.save(order), lang);
+        }
+
+        @Transactional(readOnly = true)
+        public PagedResponse<OrderResponse> getCustomerOrdersForManagement(
+                Long customerId, Pageable pageable, String lang) {
+                if (!customerRepository.existsById(customerId)) {
+                        throw new EntityNotFoundException("Cliente no encontrado.");
+                }
+                Page<Order> page = orderRepository.findByCustomer_Id(customerId, pageable);
+                return PagedResponse.<OrderResponse>builder()
+                        .content(page.getContent().stream().map(order -> mapToResponse(order, lang)).toList())
+                        .pageNumber(page.getNumber())
+                        .pageSize(page.getSize())
+                        .totalElements(page.getTotalElements())
+                        .totalPages(page.getTotalPages())
+                        .last(page.isLast())
+                        .build();
         }
 
         @Transactional(readOnly = true)
