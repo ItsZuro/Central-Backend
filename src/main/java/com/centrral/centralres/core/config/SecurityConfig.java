@@ -115,7 +115,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/v1/contact").hasRole("CLIENT")
                         .requestMatchers(HttpMethod.GET, "/api/v1/contact").hasAnyRole("ADMIN", "MANAGER")
                         .requestMatchers("/api/v1/orders/**")
-                        .hasAnyRole("CLIENT", "WAITER", "CHEF", "CASHIER", "ADMIN", "MANAGER")
+                        .hasAnyRole("CLIENT", "WAITER", "CHEF", "CASHIER", "ADMIN", "MANAGER", "DRIVER")
 
                         // El invitado necesita consultar el catálogo de checkout y las
                         // sucursales. Solo habilitamos GET, nunca escritura de órdenes.
