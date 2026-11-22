@@ -2,6 +2,8 @@ package com.centrral.centralres.features.restaurant.dto.store.request;
 
 import java.time.LocalTime;
 
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -26,4 +28,12 @@ public class StoreRequest {
 
     @NotNull(message = "La hora de cierre es obligatoria")
     private LocalTime closeTime;
+
+    @DecimalMin(value = "-90.0", message = "Latitud fuera de rango")
+    @DecimalMax(value = "90.0", message = "Latitud fuera de rango")
+    private Double latitude;
+
+    @DecimalMin(value = "-180.0", message = "Longitud fuera de rango")
+    @DecimalMax(value = "180.0", message = "Longitud fuera de rango")
+    private Double longitude;
 }
