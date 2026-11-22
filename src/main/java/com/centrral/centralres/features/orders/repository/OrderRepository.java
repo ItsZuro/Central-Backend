@@ -3,6 +3,10 @@ package com.centrral.centralres.features.orders.repository;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
+
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.Lock;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -12,6 +16,11 @@ import com.centrral.centralres.features.customers.model.Customer;
 import com.centrral.centralres.features.orders.model.Order;
 
 public interface OrderRepository extends JpaRepository<Order, Long> {
+    // Evita carreras entre cobro Niubiz y cancelación de un mismo pedido.
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT o FROM CustomerOrder o WHERE o.id = :id")
+    Optional<Order> findByIdForUpdate(@Param("id") Long id);
+
     List<Order> findByCustomer(Customer customer);
 
     List<Order> findByEmployee_IdAndType_Code(Long employeeId, String typeCode);
