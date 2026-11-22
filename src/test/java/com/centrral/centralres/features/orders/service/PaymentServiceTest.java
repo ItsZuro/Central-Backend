@@ -23,6 +23,7 @@ import com.centrral.centralres.features.customers.model.Customer;
 import com.centrral.centralres.features.orders.dto.payment.request.PaymentStartRequest;
 import com.centrral.centralres.features.orders.enums.PaymentStatus;
 import com.centrral.centralres.features.orders.model.Order;
+import com.centrral.centralres.features.orders.model.OrderStatus;
 import com.centrral.centralres.features.orders.model.OrderType;
 import com.centrral.centralres.features.orders.repository.OrderRepository;
 import com.centrral.centralres.features.orders.repository.OrderStatusRepository;
@@ -49,6 +50,7 @@ class PaymentServiceTest {
         User owner = User.builder().id(1L).roles(Set.of()).build();
         order = Order.builder().id(23L).customer(Customer.builder().user(owner).build())
                 .type(OrderType.builder().code("TAKE_AWAY").build())
+                .status(OrderStatus.builder().code("PENDING").build())
                 .total(new BigDecimal("32.00")).build();
         when(orders.findById(23L)).thenReturn(Optional.of(order));
     }
@@ -69,6 +71,17 @@ class PaymentServiceTest {
                 PaymentStartRequest.builder().orderId(23L).amount(new BigDecimal("1.00")).build(), owner))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("importe");
+        verify(niubiz, never()).createPaymentSession(any(), any());
+    }
+
+    @Test
+    void cannotStartPaymentForCancelledOrder() {
+        User owner = order.getCustomer().getUser();
+        order.setStatus(OrderStatus.builder().code("CANCELLED").build());
+        assertThatThrownBy(() -> service.startOnlinePayment(
+                PaymentStartRequest.builder().orderId(23L).amount(new BigDecimal("32.00")).build(), owner))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("no admite pagos");
         verify(niubiz, never()).createPaymentSession(any(), any());
     }
 
