@@ -318,6 +318,12 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException("Usuario no encontrado"));
 
+        // La edición del propio administrador usa /users/update-profile y sus controles
+        // de cambio de correo/usuario, no el endpoint de gestión del personal.
+        if (requestingUser.getId().equals(user.getId())) {
+            throw new IllegalArgumentException("Edita tu propia cuenta desde Mi perfil.");
+        }
+
         user.setUsername(request.getUsername());
         user.setFirstName(request.getFirstName());
         user.setLastName(request.getLastName());
