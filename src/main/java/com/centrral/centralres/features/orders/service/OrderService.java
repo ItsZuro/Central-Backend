@@ -519,10 +519,25 @@ public class OrderService {
                 Order order = orderRepository.findById(id)
                                 .orElseThrow(() -> new EntityNotFoundException("Orden no encontrada con id: " + id));
 
+                if (order.getType() == null || !"DELIVERY".equalsIgnoreCase(order.getType().getCode())) {
+                        throw new IllegalArgumentException("Solo se pueden asignar repartidores a pedidos delivery.");
+                }
+                if (Set.of("CANCELLED", "FAILED", "DELIVERED", "COMPLETED", "OUT_FOR_DELIVERY")
+                                .contains(order.getStatus().getCode())) {
+                        throw new IllegalStateException("El pedido no admite asignación de repartidor en su estado actual.");
+                }
+
                 Employee driver = employeeRepository.findById(request.getEmployeeId())
                                 .orElseThrow(() -> new EntityNotFoundException(
                                                 "Empleado (repartidor) no encontrado con id: "
                                                                 + request.getEmployeeId()));
+
+                // Actualmente /driver usa ROLE_WAITER: solo esos empleados pueden recibir un reparto.
+                if (driver.getUser() == null || driver.getUser().getRoles() == null
+                                || driver.getUser().getRoles().stream()
+                                                .noneMatch(role -> "ROLE_WAITER".equals(role.getName()))) {
+                        throw new IllegalArgumentException("El empleado seleccionado no tiene permisos de reparto.");
+                }
 
                 order.setEmployee(driver);
                 Order savedOrder = orderRepository.save(order);
