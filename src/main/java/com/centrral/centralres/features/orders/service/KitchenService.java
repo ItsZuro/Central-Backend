@@ -36,7 +36,12 @@ public class KitchenService {
 
     @Transactional(readOnly = true)
     public List<KitchenOrderResponse> board() {
-        LocalDateTime startOfToday = LocalDate.now(RESTAURANT_ZONE).atStartOfDay();
+        // Los pedidos legacy usan LocalDateTime sin zona: consultar en la misma
+        // zona del JVM que los creó y mostrar la hora con offset explícito.
+        LocalDateTime startOfToday = LocalDate.now(RESTAURANT_ZONE)
+                .atStartOfDay(RESTAURANT_ZONE)
+                .withZoneSameInstant(ZoneId.systemDefault())
+                .toLocalDateTime();
         return orderRepository.findForKitchenBoard(ACTIVE, RECENT, startOfToday)
                 .stream().map(this::toResponse).toList();
     }
@@ -80,7 +85,8 @@ public class KitchenService {
     private KitchenOrderResponse toResponse(Order order) {
         String type = order.getType().getCode();
         return new KitchenOrderResponse(
-                order.getId(), order.getDate(), order.getStatus().getCode(), type,
+                order.getId(), order.getDate().atZone(ZoneId.systemDefault()).toOffsetDateTime(),
+                order.getStatus().getCode(), type,
                 order.getTable() != null ? order.getTable().getCode() : null,
                 order.getPickupStore() != null ? order.getPickupStore().getName() : null,
                 paymentConfirmed(order),
