@@ -41,8 +41,9 @@ public class Order {
     @Column(name = "order_id")
     private Long id;
 
-    @ManyToOne(optional = false)
-    @JoinColumn(name = "customer_id", nullable = false)
+    // NULL is a walk-in / final-consumer sale; no customer account is created.
+    @ManyToOne(optional = true)
+    @JoinColumn(name = "customer_id", nullable = true)
     private Customer customer;
 
     @ManyToOne
