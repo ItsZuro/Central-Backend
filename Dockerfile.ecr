@@ -1,0 +1,7 @@
+# Imagen de producción desde el JAR validado por el job "quality".
+# Evita compilar otra vez y saturar Maven Central durante el push a ECR.
+FROM eclipse-temurin:21-jre-alpine
+WORKDIR /app
+COPY target/centralres-0.0.1-SNAPSHOT.jar app.jar
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "app.jar"]
