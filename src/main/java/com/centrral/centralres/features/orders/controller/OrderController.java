@@ -71,7 +71,7 @@ public class OrderController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'WAITER', 'CHEF', 'CASHIER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'WAITER', 'CASHIER')")
     public ResponseEntity<ApiResponse<List<OrderResponse>>> getAll(
             @RequestHeader(name = "Accept-Language", defaultValue = "es") String lang,
             @RequestParam(name = "type", required = false) String typeCode) {
@@ -170,7 +170,7 @@ public class OrderController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'WAITER', 'CASHIER', 'CHEF')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'WAITER', 'CASHIER')")
     public ResponseEntity<ApiResponse<OrderResponse>> update(
             @PathVariable Long id,
             @Valid @RequestBody OrderRequest request,
@@ -190,7 +190,7 @@ public class OrderController {
     }
 
     @PutMapping("/{id}/status")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'WAITER', 'CHEF', 'CASHIER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'WAITER', 'CASHIER')")
     public ResponseEntity<ApiResponse<OrderResponse>> updateStatus(
             @PathVariable Long id,
             @Valid @RequestBody UpdateStatusRequest request,
