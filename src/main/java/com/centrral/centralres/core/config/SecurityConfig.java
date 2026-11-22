@@ -98,6 +98,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/delivery/**").hasAnyRole("ADMIN", "MANAGER")
 
                         // El directorio y las operaciones de personal son exclusivos de ADMIN.
+                        .requestMatchers("/api/v1/customer-management", "/api/v1/customer-management/**")
+                        .hasAnyRole("ADMIN", "MANAGER")
                         .requestMatchers("/api/v1/users/admin", "/api/v1/users/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/v1/users/**")
                         .hasAnyRole("CLIENT", "ADMIN", "WAITER", "CASHIER", "MANAGER")
