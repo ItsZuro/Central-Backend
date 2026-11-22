@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import com.centrral.centralres.core.security.model.User;
 
 import com.centrral.centralres.core.dto.response.PagedResponse;
 import com.centrral.centralres.core.security.dto.ApiResponse;
@@ -34,32 +36,39 @@ public class CustomerController {
     private final CustomerService customerService;
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<ApiResponse<PagedResponse<CustomerResponse>>> getAllCustomers(Pageable pageable) {
         PagedResponse<CustomerResponse> response = customerService.getAllCustomers(pageable);
         return ResponseEntity.ok(new ApiResponse<>(true, "Clientes obtenidos correctamente", response));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<CustomerResponse>> getCustomer(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<CustomerResponse>> getCustomer(
+            @PathVariable Long id, @AuthenticationPrincipal User requester) {
+        customerService.requireCustomerOwnerOrManagement(id, requester);
         CustomerResponse customer = customerService.getCustomer(id);
         return ResponseEntity.ok(new ApiResponse<>(true, "Cliente obtenido correctamente", customer));
     }
 
     @GetMapping("/{id}/points")
-    public ResponseEntity<ApiResponse<Integer>> getPoints(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<Integer>> getPoints(
+            @PathVariable Long id, @AuthenticationPrincipal User requester) {
+        customerService.requireCustomerOwnerOrManagement(id, requester);
         int points = customerService.getPoints(id);
         return ResponseEntity.ok(new ApiResponse<>(true, "Puntos obtenidos correctamente", points));
     }
 
     @GetMapping("/{id}/points/history")
     public ResponseEntity<ApiResponse<PagedResponse<PointsHistoryResponse>>> getPointsHistory(
-            @PathVariable Long id, Pageable pageable) {
+            @PathVariable Long id, Pageable pageable,
+            @AuthenticationPrincipal User requester) {
+        customerService.requireCustomerOwnerOrManagement(id, requester);
         PagedResponse<PointsHistoryResponse> history = customerService.getPointsHistory(id, pageable);
         return ResponseEntity.ok(new ApiResponse<>(true, "Historial de puntos obtenido correctamente", history));
     }
 
     @GetMapping("/search")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_WAITER', 'ROLE_CASHIER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'WAITER', 'CASHIER')")
     public ResponseEntity<ApiResponse<List<CustomerResponse>>> searchCustomers(
             @RequestParam("query") String query) {
 
@@ -70,6 +79,7 @@ public class CustomerController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'WAITER', 'CASHIER')")
     public ResponseEntity<ApiResponse<CustomerResponse>> createCustomer(@Valid @RequestBody CustomerRequest dto) {
         CustomerResponse customer = customerService.createCustomer(dto);
         return ResponseEntity.status(HttpStatus.CREATED)
@@ -77,6 +87,7 @@ public class CustomerController {
     }
 
     @PostMapping("/{id}/points/add")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<ApiResponse<CustomerResponse>> addPoints(
             @PathVariable Long id, @RequestParam int points) {
         CustomerResponse customer = customerService.addPoints(id, points);
@@ -84,6 +95,7 @@ public class CustomerController {
     }
 
     @PostMapping("/{id}/points/subtract")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     public ResponseEntity<ApiResponse<CustomerResponse>> subtractPoints(
             @PathVariable Long id, @RequestParam int points) {
         CustomerResponse customer = customerService.subtractPoints(id, points);
@@ -91,13 +103,17 @@ public class CustomerController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('CLIENT')")
     public ResponseEntity<ApiResponse<CustomerResponse>> updateCustomer(
-            @PathVariable Long id, @Valid @RequestBody CustomerRequest dto) {
+            @PathVariable Long id, @Valid @RequestBody CustomerRequest dto,
+            @AuthenticationPrincipal User requester) {
+        customerService.requireCustomerOwner(id, requester);
         CustomerResponse customer = customerService.updateCustomer(id, dto);
         return ResponseEntity.ok(new ApiResponse<>(true, "Cliente actualizado correctamente", customer));
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Void>> deleteCustomer(@PathVariable Long id) {
         customerService.deleteCustomer(id);
         return ResponseEntity.ok(new ApiResponse<>(true, "Cliente eliminado correctamente", null));
