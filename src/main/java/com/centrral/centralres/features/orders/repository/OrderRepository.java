@@ -23,6 +23,17 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     @Query("SELECT o FROM CustomerOrder o WHERE o.id = :id")
     Optional<Order> findByIdForUpdate(@Param("id") Long id);
 
+    @Query("""
+            SELECT o FROM CustomerOrder o
+            WHERE o.status.code IN :activeCodes
+               OR (o.status.code IN :recentCodes AND o.date >= :todayStart)
+            ORDER BY o.date ASC, o.id ASC
+            """)
+    List<Order> findForKitchenBoard(
+            @Param("activeCodes") List<String> activeCodes,
+            @Param("recentCodes") List<String> recentCodes,
+            @Param("todayStart") LocalDateTime todayStart);
+
     List<Order> findByCustomer(Customer customer);
 
     Page<Order> findByCustomer_Id(Long customerId, Pageable pageable);
