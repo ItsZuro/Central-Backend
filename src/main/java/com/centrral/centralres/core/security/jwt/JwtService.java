@@ -51,6 +51,11 @@ public class JwtService {
                 .compact();
     }
 
+    public Instant getIssuedAtInstant(String token) {
+        Date issuedAt = extractClaim(token, Claims::getIssuedAt);
+        return issuedAt != null ? issuedAt.toInstant() : null;
+    }
+
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
     }
