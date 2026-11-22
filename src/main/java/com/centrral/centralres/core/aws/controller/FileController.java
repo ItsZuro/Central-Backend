@@ -64,6 +64,27 @@ public class FileController {
                                 .body(image.bytes());
         }
 
+        @GetMapping("/category-images/{fileId}")
+        public ResponseEntity<byte[]> getCategoryImage(@PathVariable Long fileId) {
+                FileService.ProductImage image = fileService.readCategoryImage(fileId);
+                return imageResponse(image);
+        }
+
+        @GetMapping("/profile-images/{fileId}")
+        public ResponseEntity<byte[]> getProfileImage(@PathVariable Long fileId) {
+                FileService.ProductImage image = fileService.readProfileImage(fileId);
+                return imageResponse(image);
+        }
+
+        private ResponseEntity<byte[]> imageResponse(FileService.ProductImage image) {
+                return ResponseEntity.ok()
+                                .contentType(MediaType.parseMediaType(image.contentType()))
+                                .contentLength(image.bytes().length)
+                                .cacheControl(CacheControl.maxAge(Duration.ofHours(12)).cachePublic())
+                                .header("X-Content-Type-Options", "nosniff")
+                                .body(image.bytes());
+        }
+
         @DeleteMapping("/delete/{fileId}")
         public ResponseEntity<ApiResponse<DeleteResponse>> deleteFile(@PathVariable Long fileId) {
                 var result = fileService.deleteFile(fileId);
