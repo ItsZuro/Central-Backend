@@ -29,10 +29,12 @@ import com.centrral.centralres.features.orders.repository.OrderRepository;
 import com.centrral.centralres.features.orders.repository.OrderStatusRepository;
 import com.centrral.centralres.features.orders.repository.PaymentMethodRepository;
 import com.centrral.centralres.features.orders.repository.PaymentRepository;
+import com.centrral.centralres.features.orders.repository.CashEntryRepository;
 
 class PaymentServiceTest {
 
     @Mock private PaymentRepository payments;
+    @Mock private CashEntryRepository cashEntries;
     @Mock private OrderRepository orders;
     @Mock private PaymentMethodRepository paymentMethods;
     @Mock private PaymentProfileRepository profiles;
@@ -46,7 +48,7 @@ class PaymentServiceTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        service = new PaymentService(payments, orders, paymentMethods, profiles, statuses, niubiz, config);
+        service = new PaymentService(payments, cashEntries, orders, paymentMethods, profiles, statuses, niubiz, config);
         User owner = User.builder().id(1L).roles(Set.of()).build();
         order = Order.builder().id(23L).customer(Customer.builder().user(owner).build())
                 .type(OrderType.builder().code("TAKE_AWAY").build())
