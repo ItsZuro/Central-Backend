@@ -42,7 +42,7 @@ public class OrderController {
     private final OrderService orderService;
 
     @GetMapping("/delivery/assigned-me")
-    @PreAuthorize("hasAnyRole('WAITER', 'ADMIN', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('DRIVER', 'ADMIN', 'MANAGER')")
     public ResponseEntity<ApiResponse<List<OrderResponse>>> assignedDeliveries(
             @AuthenticationPrincipal User user,
             @RequestHeader(name = "Accept-Language", defaultValue = "es") String lang) {
@@ -51,7 +51,7 @@ public class OrderController {
     }
 
     @PutMapping("/{id}/delivery/status")
-    @PreAuthorize("hasAnyRole('WAITER', 'ADMIN', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('DRIVER', 'ADMIN', 'MANAGER')")
     public ResponseEntity<ApiResponse<OrderResponse>> updateAssignedDeliveryStatus(
             @PathVariable Long id, @Valid @RequestBody UpdateStatusRequest request,
             @AuthenticationPrincipal User user,
@@ -160,7 +160,7 @@ public class OrderController {
     }
 
     @PostMapping("/{id}/location")
-    @PreAuthorize("hasAnyRole('WAITER', 'MANAGER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('DRIVER', 'MANAGER', 'ADMIN')")
     public ResponseEntity<ApiResponse<Void>> updateLocation(
             @PathVariable Long id,
             @Valid @RequestBody UpdateLocationRequest request,
