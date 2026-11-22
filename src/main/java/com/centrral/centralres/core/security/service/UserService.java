@@ -140,7 +140,7 @@ public class UserService {
         }
 
         Set<String> allowedRoles = Set.of(
-                "ROLE_ADMIN", "ROLE_MANAGER", "ROLE_WAITER", "ROLE_CHEF", "ROLE_CASHIER");
+                "ROLE_ADMIN", "ROLE_MANAGER", "ROLE_WAITER", "ROLE_CHEF", "ROLE_CASHIER", "ROLE_DRIVER", "ROLE_DRIVER");
         if (!allowedRoles.contains(request.getRole())) {
             throw new IllegalArgumentException("Rol de personal no permitido.");
         }
@@ -365,7 +365,7 @@ public class UserService {
         if (target.hasRole("ROLE_ADMIN")
                 || target.hasRole("ROLE_CLIENT") || target.hasRole("ROLE_SUPPLIER")
                 || target.getRoles().stream().noneMatch(role -> Set.of(
-                        "ROLE_MANAGER", "ROLE_WAITER", "ROLE_CHEF", "ROLE_CASHIER"
+                        "ROLE_MANAGER", "ROLE_WAITER", "ROLE_CHEF", "ROLE_CASHIER", "ROLE_DRIVER"
                 ).contains(role.getName()))) {
             throw new AccessDeniedException("La baja solo está disponible para personal operativo.");
         }
@@ -469,7 +469,7 @@ public class UserService {
         if (admin.getId().equals(target.getId()) || target.hasRole("ROLE_ADMIN")
                 || target.hasRole("ROLE_CLIENT") || target.hasRole("ROLE_SUPPLIER")
                 || target.getRoles().stream().noneMatch(role -> Set.of(
-                        "ROLE_MANAGER", "ROLE_WAITER", "ROLE_CHEF", "ROLE_CASHIER"
+                        "ROLE_MANAGER", "ROLE_WAITER", "ROLE_CHEF", "ROLE_CASHIER", "ROLE_DRIVER"
                 ).contains(role.getName()))) {
             throw new AccessDeniedException("Esta operación solo admite cuentas operativas de personal.");
         }
