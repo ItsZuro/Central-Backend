@@ -91,6 +91,39 @@ class CategoryServiceTest {
     }
 
     @Test
+    void shouldSaveDescriptionAndImageWithoutRequiringThem() {
+        CategoryRequest request = CategoryRequest.builder()
+                .name("  Bebidas naturales  ")
+                .description("  Jugos y bebidas preparadas al momento  ")
+                .imageUrl("https://example.org/categories/8.jpg")
+                .build();
+        when(categoryRepository.save(any(Category.class))).thenAnswer(invocation -> {
+            Category category = invocation.getArgument(0);
+            category.setId(8L);
+            return category;
+        });
+
+        CategoryResponse response = categoryService.create(request);
+        assertThat(response.getName()).isEqualTo("Bebidas naturales");
+        assertThat(response.getDescription()).isEqualTo("Jugos y bebidas preparadas al momento");
+        assertThat(response.getImageUrl()).isEqualTo("https://example.org/categories/8.jpg");
+    }
+
+    @Test
+    void shouldUpdateOptionalFieldsAndKeepExistingCategoryId() {
+        Category existing = Category.builder().id(1L).name("Bebidas")
+                .description("Anterior").imageUrl("https://example.org/old.jpg").build();
+        when(categoryRepository.findById(1L)).thenReturn(Optional.of(existing));
+        when(categoryRepository.save(existing)).thenReturn(existing);
+
+        CategoryResponse response = categoryService.update(1L, CategoryRequest.builder()
+                .name("Bebidas").description("Nueva descripción").imageUrl(null).build());
+        assertThat(response.getId()).isEqualTo(1L);
+        assertThat(response.getDescription()).isEqualTo("Nueva descripción");
+        assertThat(response.getImageUrl()).isNull();
+    }
+
+    @Test
     void shouldFailWhenDeletingUnknownCategory() {
         when(categoryRepository.existsById(99L)).thenReturn(false);
 
