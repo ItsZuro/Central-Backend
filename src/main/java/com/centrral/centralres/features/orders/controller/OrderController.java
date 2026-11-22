@@ -25,6 +25,7 @@ import com.centrral.centralres.features.orders.dto.order.request.AssignDriverReq
 import com.centrral.centralres.features.orders.dto.order.request.OrderRequest;
 import com.centrral.centralres.features.orders.dto.order.request.UpdateLocationRequest;
 import com.centrral.centralres.features.orders.dto.order.request.UpdateStatusRequest;
+import com.centrral.centralres.features.orders.dto.order.response.DriverOptionResponse;
 import com.centrral.centralres.features.orders.dto.order.response.OrderResponse;
 import com.centrral.centralres.features.orders.dto.order.response.DeliveryQuoteResponse;
 import com.centrral.centralres.features.orders.dto.payment.request.PaymentInOrderRequest;
@@ -41,8 +42,15 @@ public class OrderController {
 
     private final OrderService orderService;
 
+    @GetMapping("/delivery/eligible-drivers")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    public ResponseEntity<ApiResponse<List<DriverOptionResponse>>> eligibleDrivers() {
+        return ResponseEntity.ok(new ApiResponse<>(true, "Repartidores activos",
+                orderService.getEligibleDrivers()));
+    }
+
     @GetMapping("/delivery/assigned-me")
-    @PreAuthorize("hasAnyRole('DRIVER', 'ADMIN', 'MANAGER')")
+    @PreAuthorize("hasRole('DRIVER')")
     public ResponseEntity<ApiResponse<List<OrderResponse>>> assignedDeliveries(
             @AuthenticationPrincipal User user,
             @RequestHeader(name = "Accept-Language", defaultValue = "es") String lang) {
@@ -51,7 +59,7 @@ public class OrderController {
     }
 
     @PutMapping("/{id}/delivery/status")
-    @PreAuthorize("hasAnyRole('DRIVER', 'ADMIN', 'MANAGER')")
+    @PreAuthorize("hasRole('DRIVER')")
     public ResponseEntity<ApiResponse<OrderResponse>> updateAssignedDeliveryStatus(
             @PathVariable Long id, @Valid @RequestBody UpdateStatusRequest request,
             @AuthenticationPrincipal User user,
