@@ -25,6 +25,7 @@ import com.centrral.centralres.core.exceptions.UserNotFoundException;
 import com.centrral.centralres.core.exceptions.UsernameAlreadyExistsException;
 import com.centrral.centralres.core.exceptions.UsernameChangeNotAllowedException;
 import com.centrral.centralres.core.security.dto.ChanguePasswordRequest;
+import com.centrral.centralres.core.security.dto.CreateStaffUserRequest;
 import com.centrral.centralres.core.security.dto.UpdateProfileRequest;
 import com.centrral.centralres.core.security.dto.UpdateProfileResponse;
 import com.centrral.centralres.core.security.dto.UpdateUserRequest;
@@ -36,6 +37,7 @@ import com.centrral.centralres.core.security.model.RefreshToken;
 import com.centrral.centralres.core.security.model.Role;
 import com.centrral.centralres.core.security.model.User;
 import com.centrral.centralres.core.security.repository.UserRepository;
+import com.centrral.centralres.core.security.repository.RoleRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -47,6 +49,7 @@ public class UserService {
     private final AuthService authService;
     private final JwtService jwtService;
     private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
     private final FileService fileService;
     // private final NotificationProducer notificationProducer;
 
@@ -113,6 +116,51 @@ public class UserService {
                 .profileImageUrl(
                         user.getProfileImageId() != null ? fileService.getFileUrl(user.getProfileImageId()) : null)
                 .build();
+    }
+
+    /**
+     * Crea una cuenta de personal sin usar los datos semilla del perfil de desarrollo.
+     * Solo un administrador autenticado puede invocar esta operación.
+     */
+    @Transactional
+    public UserProfileResponse createStaffUser(User requestingUser, CreateStaffUserRequest request) {
+        if (requestingUser == null || !requestingUser.hasRole("ROLE_ADMIN")) {
+            throw new AccessDeniedException("Solo un administrador puede crear usuarios del equipo.");
+        }
+
+        Set<String> allowedRoles = Set.of(
+                "ROLE_ADMIN", "ROLE_MANAGER", "ROLE_WAITER", "ROLE_CHEF", "ROLE_CASHIER");
+        if (!allowedRoles.contains(request.getRole())) {
+            throw new IllegalArgumentException("Rol de personal no permitido.");
+        }
+
+        String username = request.getUsername().trim().toLowerCase(java.util.Locale.ROOT);
+        String email = request.getEmail().trim().toLowerCase(java.util.Locale.ROOT);
+        if (userRepository.existsByUsername(username)) {
+            throw new UsernameAlreadyExistsException("Nombre de usuario ya registrado.");
+        }
+        if (userRepository.existsByEmailIgnoreCase(email)) {
+            throw new EmailAlreadyExistsException("Correo electrónico ya registrado.");
+        }
+
+        Role role = roleRepository.findByName(request.getRole())
+                .orElseThrow(() -> new IllegalArgumentException("El rol no está configurado en la base de datos."));
+
+        User staff = User.builder()
+                .username(username)
+                .email(email)
+                .firstName(request.getFirstName().trim())
+                .lastName(request.getLastName().trim())
+                .phone(request.getPhone())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .roles(Set.of(role))
+                .enabled(true)
+                .emailVerified(true)
+                .provider(AuthProvider.LOCAL)
+                .build();
+
+        User saved = userRepository.save(staff);
+        return getUserByUsername(saved.getUsername());
     }
 
     @Transactional
@@ -277,13 +325,18 @@ public class UserService {
         user.setPhone(request.getPhone());
         user.setEnabled(request.isEnabled());
 
+        if (requestingUser.getId().equals(user.getId()) && !request.isEnabled()) {
+            throw new IllegalArgumentException("No puedes desactivar tu propia cuenta administradora.");
+        }
+
         if (request.getRoles() != null && !request.getRoles().isEmpty()) {
+            if (requestingUser.getId().equals(user.getId())
+                    && !request.getRoles().contains("ROLE_ADMIN")) {
+                throw new IllegalArgumentException("No puedes quitarte el rol ADMIN a ti mismo.");
+            }
             Set<Role> newRoles = request.getRoles().stream()
-                    .map(roleName -> {
-                        Role role = new Role();
-                        role.setName(roleName);
-                        return role;
-                    })
+                    .map(roleName -> roleRepository.findByName(roleName)
+                            .orElseThrow(() -> new IllegalArgumentException("Rol desconocido: " + roleName)))
                     .collect(Collectors.toSet());
             user.setRoles(newRoles);
         }
