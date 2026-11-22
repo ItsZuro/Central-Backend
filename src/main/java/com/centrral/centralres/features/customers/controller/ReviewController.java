@@ -44,6 +44,15 @@ public class ReviewController {
                 reviewService.getReviewsByProduct(productId)));
     }
 
+    @PreAuthorize("hasRole('CLIENT')")
+    @GetMapping("/product/{productId}/eligibility")
+    public ResponseEntity<ApiResponse<Boolean>> canReviewProduct(
+            @PathVariable Long productId,
+            @AuthenticationPrincipal User user) {
+        boolean eligible = reviewService.canReviewProduct(user, productId);
+        return ResponseEntity.ok(new ApiResponse<>(true, "Elegibilidad para reseña", eligible));
+    }
+
     @PreAuthorize("isAuthenticated()")
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<List<ReviewResponse>>> getMeReviews(
