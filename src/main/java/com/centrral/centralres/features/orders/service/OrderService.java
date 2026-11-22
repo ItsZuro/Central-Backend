@@ -92,6 +92,7 @@ public class OrderService {
         private final InvoiceGenerator invoiceGenerator;
         private final PaymentMethodRepository paymentMethodRepository;
 
+        @Transactional(readOnly = true)
         public List<OrderResponse> getAll(String lang, String typeCode) {
                 List<Order> orders;
 
@@ -122,6 +123,7 @@ public class OrderService {
                 }
         }
 
+        @Transactional(readOnly = true)
         public OrderResponse getById(Long id, String lang) {
                 Order order = orderRepository.findById(id)
                                 .orElseThrow(() -> new EntityNotFoundException("Orden no encontrada con id: " + id));
@@ -203,6 +205,7 @@ public class OrderService {
                 return mapToResponse(orderRepository.save(order), lang);
         }
 
+        @Transactional(readOnly = true)
         public List<OrderResponse> getOrdersForCurrentUser(User user, String lang) {
                 Customer customer = customerRepository.findByUserId(user.getId())
                                 .orElseThrow(() -> new EntityNotFoundException(
