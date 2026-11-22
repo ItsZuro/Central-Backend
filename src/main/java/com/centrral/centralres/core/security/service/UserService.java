@@ -357,9 +357,12 @@ public class UserService {
         if (requestingUser == null || !requestingUser.hasRole("ROLE_ADMIN")) {
             throw new AccessDeniedException("Solo un administrador puede activar o dar de baja personal.");
         }
+        if (requestingUser.getId().equals(targetId)) {
+            throw new AccessDeniedException("No puedes dar de baja tu propia cuenta.");
+        }
         User target = userRepository.findById(targetId)
                 .orElseThrow(() -> new UserNotFoundException("Usuario no encontrado"));
-        if (requestingUser.getId().equals(targetId) || target.hasRole("ROLE_ADMIN")
+        if (target.hasRole("ROLE_ADMIN")
                 || target.hasRole("ROLE_CLIENT") || target.hasRole("ROLE_SUPPLIER")
                 || target.getRoles().stream().noneMatch(role -> Set.of(
                         "ROLE_MANAGER", "ROLE_WAITER", "ROLE_CHEF", "ROLE_CASHIER"
