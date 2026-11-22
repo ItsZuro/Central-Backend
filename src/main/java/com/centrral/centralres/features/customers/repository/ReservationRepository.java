@@ -2,6 +2,8 @@ package com.centrral.centralres.features.customers.repository;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.Collection;
 import java.util.List;
 
 import org.springframework.data.domain.Page;
@@ -18,6 +20,21 @@ import com.centrral.centralres.features.customers.model.Reservation;
 public interface ReservationRepository extends JpaRepository<Reservation, Long> {
 
         Page<Reservation> findByCustomerId(Long customerId, Pageable pageable);
+
+        // El calendario se interpreta en la zona horaria de la sucursal (America/Lima).
+        // No cuentan reservas canceladas, completadas o que ya hayan pasado.
+        @Query("""
+                    SELECT r FROM Reservation r
+                    WHERE r.customer.id = :customerId
+                      AND r.status IN :statuses
+                      AND (r.reservationDate > :today
+                        OR (r.reservationDate = :today AND r.reservationTime >= :nowTime))
+                """)
+        List<Reservation> findActiveUpcomingForCustomer(
+                        @Param("customerId") Long customerId,
+                        @Param("statuses") Collection<ReservationStatus> statuses,
+                        @Param("today") LocalDate today,
+                        @Param("nowTime") LocalTime nowTime);
 
         List<Reservation> findByTable_IdAndReservationDate(Long tableId, LocalDate date);
 
