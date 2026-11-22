@@ -535,6 +535,10 @@ public class OrderService {
                                                 "Estado de orden no encontrado con código: "
                                                                 + request.getNewStatusCode()));
 
+                if (Set.of("CANCELLED", "FAILED", "REFUNDED").contains(newStatus.getCode())
+                        && paymentRepository.existsByOrder_IdAndStatus(id, PaymentStatus.CONFIRMED)) {
+                        throw new ConflictException("Un pedido cobrado no puede anularse sin un proceso de devolución auditado.");
+                }
                 ensureDeliveryPayment(order, order.getType().getCode(), newStatus.getCode());
                 order.setStatus(newStatus);
                 Order savedOrder = orderRepository.save(order);
