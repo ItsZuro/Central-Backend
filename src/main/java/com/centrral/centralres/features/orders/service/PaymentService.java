@@ -3,6 +3,7 @@ package com.centrral.centralres.features.orders.service;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.data.jpa.domain.Specification;
@@ -114,7 +115,7 @@ public class PaymentService {
 
                 Long orderId = Long.parseLong(request.getPurchaseNumber().split("-")[0]);
 
-                Order order = orderRepository.findById(orderId)
+                Order order = orderRepository.findByIdForUpdate(orderId)
                                 .orElseThrow(() -> new EntityNotFoundException("Orden no encontrada ID: " + orderId));
 
                 validateOrderForPayment(order);
@@ -240,6 +241,10 @@ public class PaymentService {
                 String orderTypeCode = order.getType().getCode().toUpperCase();
                 if (!"DELIVERY".equals(orderTypeCode) && !"TAKE_AWAY".equals(orderTypeCode)) {
                         throw new IllegalArgumentException("Pagos online no permitidos para: " + orderTypeCode);
+                }
+                if (order.getStatus() == null || Set.of("CANCELLED", "FAILED", "COMPLETED", "DELIVERED")
+                        .contains(order.getStatus().getCode().toUpperCase())) {
+                        throw new IllegalStateException("Este pedido ya no admite pagos online.");
                 }
                 if (order.getTotal() == null || order.getTotal().compareTo(BigDecimal.ZERO) <= 0) {
                         throw new IllegalArgumentException("El monto a pagar debe ser mayor a cero.");
