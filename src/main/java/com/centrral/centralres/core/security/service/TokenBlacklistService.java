@@ -80,6 +80,7 @@ public class TokenBlacklistService {
 
     private static final String CREDENTIAL_RESET_REASON = "STAFF_PASSWORD_RESET";
     private static final String STAFF_DEACTIVATION_REASON = "STAFF_ACCOUNT_DEACTIVATED";
+    private static final String CUSTOMER_SUSPENSION_REASON = "CUSTOMER_ACCOUNT_SUSPENDED";
 
     /**
      * Registra un límite temporal para el JWT del empleado, incluyendo tokens
@@ -112,6 +113,19 @@ public class TokenBlacklistService {
                 .build());
     }
 
+    @Transactional
+    public void recordCustomerAccountSuspension(String username) {
+        Instant now = Instant.now();
+        repository.save(TokenAudit.builder()
+                .token("customer-suspended-" + UUID.randomUUID())
+                .username(username)
+                .eventType(TokenEventType.REVOKED)
+                .timestamp(now)
+                .expiresAt(now.plusSeconds(86_400L * 365))
+                .reason(CUSTOMER_SUSPENSION_REASON)
+                .build());
+    }
+
     /**
      * Revoca JWT emitidos antes de una baja lógica o un restablecimiento
      * de contraseña. Los tokens nuevos, tras una reactivación, siguen siendo válidos.
@@ -124,6 +138,9 @@ public class TokenBlacklistService {
                 .filter(marker -> !issuedAt.isAfter(marker.getTimestamp())).isPresent()
                 || repository.findFirstByUsernameAndEventTypeAndReasonOrderByTimestampDesc(
                         username, TokenEventType.REVOKED, STAFF_DEACTIVATION_REASON)
+                .filter(marker -> !issuedAt.isAfter(marker.getTimestamp())).isPresent()
+                || repository.findFirstByUsernameAndEventTypeAndReasonOrderByTimestampDesc(
+                        username, TokenEventType.REVOKED, CUSTOMER_SUSPENSION_REASON)
                 .filter(marker -> !issuedAt.isAfter(marker.getTimestamp())).isPresent();
     }
 
