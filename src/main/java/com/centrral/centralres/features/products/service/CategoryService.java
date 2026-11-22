@@ -33,7 +33,9 @@ public class CategoryService {
 
     public CategoryResponse create(CategoryRequest request) {
         Category category = Category.builder()
-                .name(request.getName())
+                .name(request.getName().trim())
+                .description(normalizeDescription(request.getDescription()))
+                .imageUrl(normalizeImageUrl(request.getImageUrl()))
                 .build();
         Category savedCategory = categoryRepository.save(category);
         return mapToResponse(savedCategory);
@@ -42,7 +44,9 @@ public class CategoryService {
     public CategoryResponse update(Long id, CategoryRequest request) {
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new CategoryNotFoundException("Categoría no encontrada con id: " + id));
-        category.setName(request.getName());
+        category.setName(request.getName().trim());
+        category.setDescription(normalizeDescription(request.getDescription()));
+        category.setImageUrl(normalizeImageUrl(request.getImageUrl()));
         Category updatedCategory = categoryRepository.save(category);
         return mapToResponse(updatedCategory);
     }
@@ -55,10 +59,27 @@ public class CategoryService {
         return null;
     }
 
+    private String normalizeDescription(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private String normalizeImageUrl(String value) {
+        if (value == null || value.isBlank()) return null;
+        String url = value.trim();
+        if (!(url.startsWith("https://") || url.startsWith("http://"))) {
+            throw new IllegalArgumentException("La URL de imagen debe comenzar con https:// o http://.");
+        }
+        return url;
+    }
+
     private CategoryResponse mapToResponse(Category category) {
         return CategoryResponse.builder()
                 .id(category.getId())
                 .name(category.getName())
+                .description(category.getDescription())
+                .imageUrl(category.getImageUrl())
+                .createdAt(category.getCreatedAt())
+                .updatedAt(category.getUpdatedAt())
                 .build();
     }
 
