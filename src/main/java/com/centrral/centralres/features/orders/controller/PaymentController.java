@@ -94,7 +94,7 @@ public class PaymentController {
                 response.sendRedirect(redirectUrl);
         }
 
-        @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'CASHIER')")
+        @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
         @PutMapping("/{id}")
         public ResponseEntity<ApiResponse<PaymentResponse>> update(
                         @PathVariable Long id,
@@ -104,7 +104,7 @@ public class PaymentController {
                                 new ApiResponse<>(true, "Pago actualizado", response));
         }
 
-        @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'CASHIER')")
+        @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
         @DeleteMapping("/{id}")
         public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
                 paymentService.delete(id);
