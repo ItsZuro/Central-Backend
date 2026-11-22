@@ -194,6 +194,7 @@ public class OrderService {
                         throw new AccessDeniedException("El pedido no está asignado a este repartidor.");
                 }
                 String current = order.getStatus().getCode();
+                ensureDeliveryPayment(order, order.getType().getCode(), newCode);
                 boolean allowed = ("READY_FOR_PICKUP".equals(current) && "OUT_FOR_DELIVERY".equals(newCode))
                         || ("OUT_FOR_DELIVERY".equals(current) && "DELIVERED".equals(newCode));
                 if (!allowed) throw new IllegalArgumentException("Transición de entrega no permitida.");
@@ -334,6 +335,11 @@ public class OrderService {
                 request.setEmployeeId(cashierEmployee.getId());
 
                 Order order = buildOrderBase(request, customer);
+                if (order.getType() != null && "DELIVERY".equalsIgnoreCase(order.getType().getCode())
+                                && request.getPayments() != null && !request.getPayments().isEmpty()) {
+                        throw new IllegalArgumentException("Delivery solo admite pago online mediante Niubiz.");
+                }
+                ensureDeliveryPayment(order, order.getType().getCode(), order.getStatus().getCode());
 
                 BigDecimal total = BigDecimal.ZERO;
                 Set<OrderDetail> details = new LinkedHashSet<>();
@@ -645,6 +651,12 @@ public class OrderService {
                 Order order = orderRepository.findById(orderId)
                                 .orElseThrow(() -> new EntityNotFoundException(
                                                 "Orden no encontrada con id: " + orderId));
+                if ("DELIVERY".equalsIgnoreCase(order.getType().getCode())) {
+                        throw new IllegalStateException("No se aceptan pagos locales para delivery.");
+                }
+                if ("CANCELLED".equalsIgnoreCase(order.getStatus().getCode())) {
+                        throw new IllegalStateException("No se puede cobrar un pedido cancelado.");
+                }
 
                 paymentService.createInOrder(order, request);
                 orderRepository.save(order);
