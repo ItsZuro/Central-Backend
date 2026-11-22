@@ -118,7 +118,10 @@ public class OrderService {
                                 "ROLE_CHEF", "ROLE_WAITER").contains(r.getName()));
                 boolean isOwner = order.getCustomer() != null && order.getCustomer().getUser() != null
                         && user.getId().equals(order.getCustomer().getUser().getId());
-                if (!isStaff && !isOwner) {
+                boolean isAssignedDriver = user.hasRole("ROLE_DRIVER")
+                        && order.getEmployee() != null && order.getEmployee().getUser() != null
+                        && user.getId().equals(order.getEmployee().getUser().getId());
+                if (!isStaff && !isOwner && !isAssignedDriver) {
                         throw new AccessDeniedException("No tienes permiso para consultar este pedido.");
                 }
         }
