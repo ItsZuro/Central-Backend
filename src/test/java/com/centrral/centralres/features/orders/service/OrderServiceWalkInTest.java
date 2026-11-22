@@ -97,6 +97,8 @@ class OrderServiceWalkInTest {
                 OrderStatus.builder().id(4L).code("PENDING").build()));
         when(statusRepository.findByCode("PENDING_CONFIRMATION")).thenReturn(Optional.of(
                 OrderStatus.builder().id(6L).code("PENDING_CONFIRMATION").build()));
+        when(statusRepository.findById(6L)).thenReturn(Optional.of(
+                OrderStatus.builder().id(6L).code("PENDING_CONFIRMATION").build()));
         when(typeRepository.findById(2L)).thenReturn(Optional.of(
                 OrderType.builder().id(2L).code("TAKE_AWAY").build()));
         when(storeRepository.findById(3L)).thenReturn(Optional.of(
