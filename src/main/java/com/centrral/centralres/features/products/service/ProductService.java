@@ -282,7 +282,9 @@ public class ProductService {
                                                 })
                                                 .collect(Collectors.toSet());
                         }
-                        product.replaceIngredients(ingredients);
+                        if (request.getIngredients() != null) {
+                                product.replaceIngredients(ingredients);
+                        }
                 }
 
                 if (request.getExtras() != null) {
