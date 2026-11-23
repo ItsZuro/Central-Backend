@@ -58,6 +58,9 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/health").permitAll()
+                        // Allow HTTP handshake/SockJS info only. STOMP CONNECT/SUBSCRIBE
+                        // are JWT-authorized by the channel interceptor.
+                        .requestMatchers("/ws", "/ws/**", "/ws-native", "/ws-native/**").permitAll()
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         .requestMatchers("/oauth2/**").permitAll()
                         .requestMatchers("/loginSuccess").permitAll()
