@@ -15,6 +15,9 @@ spring:
     show-sql: false
 
 app:
+  scheduler:
+    distributed:
+      enabled: true
   websocket:
     cluster:
       # Use PostgreSQL LISTEN/NOTIFY across all ECS tasks. No in-memory-only events.

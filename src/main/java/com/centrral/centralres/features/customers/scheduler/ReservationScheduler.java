@@ -9,6 +9,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import com.centrral.centralres.features.customers.enums.ReservationStatus;
+import com.centrral.centralres.core.config.DistributedSchedulerLock;
 import com.centrral.centralres.features.customers.model.Reservation;
 import com.centrral.centralres.features.customers.repository.ReservationRepository;
 import com.centrral.centralres.features.restaurant.enums.TableStatus;
@@ -25,6 +26,7 @@ public class ReservationScheduler {
 
     private final ReservationRepository reservationRepository;
     private final TableRepository tableRepository;
+    private final DistributedSchedulerLock distributedLock;
 
     private static final ZoneId RESTAURANT_ZONE = ZoneId.of("America/Lima");
 
@@ -33,6 +35,10 @@ public class ReservationScheduler {
      */
     @Scheduled(fixedRate = 5 * 60 * 1000)
     public void releaseNoShowTables() {
+        distributedLock.runOnce(11001004L, this::releaseNoShowTablesLocked);
+    }
+
+    private void releaseNoShowTablesLocked() {
         ZonedDateTime now = ZonedDateTime.now(RESTAURANT_ZONE);
 
         List<Reservation> expiredReservations = reservationRepository
