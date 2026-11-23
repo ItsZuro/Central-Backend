@@ -17,6 +17,7 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import com.centrral.centralres.core.exceptions.BadRequestException;
+import com.centrral.centralres.core.config.PostgresWebSocketBridge;
 import com.centrral.centralres.features.orders.model.Order;
 import com.centrral.centralres.features.orders.model.OrderStatus;
 import com.centrral.centralres.features.orders.model.OrderType;
@@ -26,6 +27,7 @@ import com.centrral.centralres.features.orders.repository.OrderStatusRepository;
 class KitchenServiceTest {
     @Mock OrderRepository orderRepository;
     @Mock OrderStatusRepository statusRepository;
+    @Mock PostgresWebSocketBridge wsEvents;
     @InjectMocks KitchenService service;
 
     private Order order;

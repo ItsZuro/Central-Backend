@@ -3,6 +3,7 @@ package com.centrral.centralres.features.orders.service;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.centrral.centralres.core.config.NiubizConfig;
+import com.centrral.centralres.core.config.PostgresWebSocketBridge;
 import com.centrral.centralres.core.exceptions.ConflictException;
 import com.centrral.centralres.features.orders.repository.CashEntryRepository;
 import com.centrral.centralres.core.security.repository.PaymentProfileRepository;
@@ -49,6 +51,7 @@ public class PaymentService {
         private final OrderStatusRepository orderStatusRepository;
         private final NiubizService niubizService;
         private final NiubizConfig niubizConfig;
+        private final PostgresWebSocketBridge wsEvents;
 
         public List<PaymentResponse> getAll(
                         Long customerId, Long paymentMethodId, LocalDateTime dateFrom, LocalDateTime dateTo) {
@@ -156,6 +159,7 @@ public class PaymentService {
 
                 order.setStatus(nextStatus);
                 orderRepository.save(order);
+                wsEvents.publish("/topic/orders", Map.of("event", "ORDERS_CHANGED"));
 
                 return mapToResponse(saved);
         }

@@ -107,10 +107,9 @@ public class OrderService {
         private final PostgresWebSocketBridge wsEvents;
 
         private void notifyOrderChanged(Order order, String event) {
-                wsEvents.publish("/topic/orders", Map.of(
-                        "orderId", order.getId(),
-                        "status", order.getStatus().getCode(),
-                        "event", event));
+                // A public staff topic carries only a generic invalidation hint.
+                // REST endpoints enforce ownership and role permissions when refetching.
+                wsEvents.publish("/topic/orders", Map.of("event", "ORDERS_CHANGED"));
         }
 
         @Transactional(readOnly = true)
@@ -454,7 +453,9 @@ public class OrderService {
                         request.getDocuments().forEach(d -> documentService.createInOrder(savedOrder, d));
                 }
 
-                return mapToResponse(orderRepository.save(savedOrder), lang);
+                Order finalizedOrder = orderRepository.save(savedOrder);
+                notifyOrderChanged(finalizedOrder, "ORDER_CREATED");
+                return mapToResponse(finalizedOrder, lang);
         }
 
         @Transactional
@@ -558,6 +559,7 @@ public class OrderService {
                 savePaymentsAndDocuments(savedOrder, request);
 
                 Order finalSavedOrder = orderRepository.save(savedOrder);
+                notifyOrderChanged(finalSavedOrder, "ORDER_CREATED");
 
                 return mapToResponse(finalSavedOrder, lang);
         }
@@ -646,7 +648,9 @@ public class OrderService {
 
                 savePaymentsAndDocuments(order, request);
 
-                return mapToResponse(orderRepository.save(order), lang);
+                Order updatedOrder = orderRepository.save(order);
+                notifyOrderChanged(updatedOrder, "ORDER_UPDATED");
+                return mapToResponse(updatedOrder, lang);
         }
 
         /**
@@ -782,6 +786,7 @@ public class OrderService {
                                 true, order.getId(), "Eliminación de orden"));
 
                 orderRepository.delete(order);
+                notifyOrderChanged(order, "ORDER_DELETED");
         }
 
         @Transactional
@@ -843,9 +848,7 @@ public class OrderService {
                 }
 
                 orderRepository.save(order);
-
-                // TODO: Enviar notificación ?
-                // notificationProducer.sendOrderCancelledNotification(order);
+                notifyOrderChanged(order, "ORDER_CANCELLED");
 
                 return mapToResponse(order, lang);
         }

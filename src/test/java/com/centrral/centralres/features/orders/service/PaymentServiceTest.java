@@ -17,6 +17,7 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.security.access.AccessDeniedException;
 
 import com.centrral.centralres.core.config.NiubizConfig;
+import com.centrral.centralres.core.config.PostgresWebSocketBridge;
 import com.centrral.centralres.core.security.model.User;
 import com.centrral.centralres.core.security.repository.PaymentProfileRepository;
 import com.centrral.centralres.features.customers.model.Customer;
@@ -41,6 +42,7 @@ class PaymentServiceTest {
     @Mock private OrderStatusRepository statuses;
     @Mock private NiubizService niubiz;
     @Mock private NiubizConfig config;
+    @Mock private PostgresWebSocketBridge wsEvents;
 
     private PaymentService service;
     private Order order;
@@ -48,7 +50,7 @@ class PaymentServiceTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        service = new PaymentService(payments, cashEntries, orders, paymentMethods, profiles, statuses, niubiz, config);
+        service = new PaymentService(payments, cashEntries, orders, paymentMethods, profiles, statuses, niubiz, config, wsEvents);
         User owner = User.builder().id(1L).roles(Set.of()).build();
         order = Order.builder().id(23L).customer(Customer.builder().user(owner).build())
                 .type(OrderType.builder().code("TAKE_AWAY").build())

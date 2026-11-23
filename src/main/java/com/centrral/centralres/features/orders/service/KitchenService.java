@@ -5,12 +5,14 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.centrral.centralres.core.exceptions.BadRequestException;
+import com.centrral.centralres.core.config.PostgresWebSocketBridge;
 import com.centrral.centralres.features.orders.dto.order.response.KitchenOrderResponse;
 import com.centrral.centralres.features.orders.enums.PaymentStatus;
 import com.centrral.centralres.features.orders.model.Order;
@@ -33,6 +35,7 @@ public class KitchenService {
 
     private final OrderRepository orderRepository;
     private final OrderStatusRepository statusRepository;
+    private final PostgresWebSocketBridge wsEvents;
 
     @Transactional(readOnly = true)
     public List<KitchenOrderResponse> board() {
@@ -73,6 +76,7 @@ public class KitchenService {
                 .orElseThrow(() -> new EntityNotFoundException("Estado de cocina no configurado."));
         order.setStatus(next);
         KitchenOrderResponse result = toResponse(orderRepository.save(order));
+        wsEvents.publish("/topic/orders", Map.of("event", "ORDERS_CHANGED"));
         log.info("Cocina: pedido {} cambió de {} a {}", id, current, target);
         return result;
     }
