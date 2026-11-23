@@ -1,6 +1,7 @@
 package com.centrral.centralres.core.config;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -11,8 +12,6 @@ import javax.sql.DataSource;
 import org.postgresql.PGConnection;
 import org.postgresql.PGNotification;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.jdbc.core.ConnectionCallback;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -39,7 +38,6 @@ public class PostgresWebSocketBridge {
     private static final String CHANNEL = "central_ws_events";
 
     private final DataSource dataSource;
-    private final JdbcTemplate jdbc;
     private final ObjectMapper mapper;
     private final SimpMessagingTemplate socket;
     private final boolean clustered;
@@ -51,7 +49,6 @@ public class PostgresWebSocketBridge {
             SimpMessagingTemplate socket,
             @Value("${app.websocket.cluster.enabled:false}") boolean clustered) {
         this.dataSource = dataSource;
-        this.jdbc = new JdbcTemplate(dataSource);
         this.mapper = mapper;
         this.socket = socket;
         this.clustered = clustered;
@@ -87,14 +84,18 @@ public class PostgresWebSocketBridge {
             try {
                 String data = mapper.writeValueAsString(Map.of(
                         "destination", destination, "payload", payload));
-                jdbc.execute((ConnectionCallback<Void>) connection -> {
-                    try (var statement = connection.prepareStatement("SELECT pg_notify(?, ?)")) {
+                // Obtain a separate JDBC connection: afterCommit() still has the
+                // original transaction resources bound to its thread. Reusing
+                // JdbcTemplate there could execute NOTIFY without a fresh COMMIT.
+                try (Connection connection = dataSource.getConnection()) {
+                    connection.setAutoCommit(true);
+                    try (PreparedStatement statement =
+                            connection.prepareStatement("SELECT pg_notify(?, ?)")) {
                         statement.setString(1, CHANNEL);
                         statement.setString(2, data);
                         statement.execute();
                     }
-                    return null;
-                });
+                }
             } catch (Exception ex) {
                 // Committed orders must not fail if a transient notification fails.
                 log.warn("Unable to broadcast order notification: {}", ex.toString());
