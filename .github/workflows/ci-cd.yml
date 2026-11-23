@@ -245,7 +245,18 @@ jobs:
             del(.taskDefinitionArn, .revision, .status, .requiresAttributes,
                 .compatibilities, .registeredAt, .registeredBy, .deregisteredAt)
             | .containerDefinitions |= map(
-                if .name == $container then .image = $image else . end
+                if .name == $container then
+                  .image = $image
+                  | .environment = (
+                      (.environment // [])
+                      | map(select(.name != "SPRING_PROFILES_ACTIVE"
+                              and .name != "DB_SSLMODE"
+                              and .name != "JPA_DDL_AUTO"))
+                      + [{"name": "SPRING_PROFILES_ACTIVE", "value": "prod"},
+                         {"name": "DB_SSLMODE", "value": "require"},
+                         {"name": "JPA_DDL_AUTO", "value": "none"}]
+                    )
+                else . end
               )
           ' /tmp/central-current-task.json > /tmp/central-new-task.json
 
