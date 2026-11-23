@@ -4,6 +4,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -82,8 +83,11 @@ public class PostgresWebSocketBridge {
         }
         Runnable afterCommit = () -> {
             try {
+                // One correlation ID per published PostgreSQL notification.
+                // CloudWatch log streams identify which ECS task handled it.
+                String eventId = UUID.randomUUID().toString();
                 String data = mapper.writeValueAsString(Map.of(
-                        "destination", destination, "payload", payload));
+                        "eventId", eventId, "destination", destination, "payload", payload));
                 // Obtain a separate JDBC connection: afterCommit() still has the
                 // original transaction resources bound to its thread. Reusing
                 // JdbcTemplate there could execute NOTIFY without a fresh COMMIT.
@@ -96,6 +100,7 @@ public class PostgresWebSocketBridge {
                         statement.execute();
                     }
                 }
+                log.info("WebSocket bridge published eventId={}", eventId);
             } catch (Exception ex) {
                 // Committed orders must not fail if a transient notification fails.
                 log.warn("Unable to broadcast order notification: {}", ex.toString());
@@ -132,6 +137,11 @@ public class PostgresWebSocketBridge {
                             String destination = event.path("destination").asText("");
                             JsonNode payload = event.path("payload");
                             if (destination.startsWith("/topic/") && payload.isObject()) {
+                                // Same eventId must appear in each receiving ECS task log stream.
+                                String eventId = event.path("eventId").asText("");
+                                if (!eventId.isBlank()) {
+                                    log.info("WebSocket bridge received eventId={}", eventId);
+                                }
                                 socket.convertAndSend(destination, mapper.convertValue(payload, Map.class));
                             }
                         } catch (Exception ex) {
