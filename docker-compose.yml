@@ -27,6 +27,10 @@ services:
     restart: unless-stopped
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      # Local PostgreSQL container does not use TLS; ECS enforces require.
+      DB_SSLMODE: disable
+      # Create schema only for the ephemeral Compose database; ECS enforces none.
+      JPA_DDL_AUTO: update
       POSTGRES_USER: ${POSTGRES_USER:?Define POSTGRES_USER in .env.properties}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Define POSTGRES_PASSWORD in .env.properties}
       POSTGRES_DB: ${POSTGRES_DB:?Define POSTGRES_DB in .env.properties}
