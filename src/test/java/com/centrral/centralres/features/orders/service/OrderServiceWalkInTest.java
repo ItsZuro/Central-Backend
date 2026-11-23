@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import com.centrral.centralres.core.config.PostgresWebSocketBridge;
 import org.mockito.MockitoAnnotations;
 
 import com.centrral.centralres.core.config.TaxConfig;
@@ -68,6 +69,7 @@ class OrderServiceWalkInTest {
     @Mock PaymentMethodRepository paymentMethodRepository;
     @Mock CashShiftRepository cashShiftRepository;
     @Mock PaymentRepository paymentRepository;
+    @Mock PostgresWebSocketBridge wsEvents;
     @InjectMocks OrderService service;
 
     User cashier;

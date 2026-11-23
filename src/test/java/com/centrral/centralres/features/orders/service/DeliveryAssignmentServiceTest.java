@@ -18,6 +18,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import com.centrral.centralres.core.config.PostgresWebSocketBridge;
 import org.mockito.MockitoAnnotations;
 
 import com.centrral.centralres.core.exceptions.ConflictException;
@@ -38,6 +39,7 @@ class DeliveryAssignmentServiceTest {
     @Mock OrderRepository orders;
     @Mock EmployeeRepository employees;
     @Mock OrderStatusRepository statuses;
+    @Mock PostgresWebSocketBridge wsEvents;
     @InjectMocks OrderService service;
 
     Order order;

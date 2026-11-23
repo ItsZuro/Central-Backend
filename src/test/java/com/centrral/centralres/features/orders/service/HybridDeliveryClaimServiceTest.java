@@ -19,6 +19,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import com.centrral.centralres.core.config.PostgresWebSocketBridge;
 import org.mockito.MockitoAnnotations;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
@@ -41,6 +42,7 @@ class HybridDeliveryClaimServiceTest {
     @Mock OrderRepository orders;
     @Mock EmployeeRepository employees;
     @Mock PaymentRepository payments;
+    @Mock PostgresWebSocketBridge wsEvents;
     @InjectMocks OrderService service;
 
     private User driverUser;

@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.centrral.centralres.core.config.TaxConfig;
+import com.centrral.centralres.core.config.PostgresWebSocketBridge;
 import com.centrral.centralres.core.exceptions.ConflictException;
 import com.centrral.centralres.features.orders.repository.CashShiftRepository;
 import com.centrral.centralres.core.dto.response.PagedResponse;
@@ -103,6 +104,14 @@ public class OrderService {
         private final PaymentMethodRepository paymentMethodRepository;
         private final CashShiftRepository cashShiftRepository;
         private final PaymentRepository paymentRepository;
+        private final PostgresWebSocketBridge wsEvents;
+
+        private void notifyOrderChanged(Order order, String event) {
+                wsEvents.publish("/topic/orders", Map.of(
+                        "orderId", order.getId(),
+                        "status", order.getStatus().getCode(),
+                        "event", event));
+        }
 
         @Transactional(readOnly = true)
         public List<OrderResponse> getAll(String lang, String typeCode) {
@@ -281,6 +290,7 @@ public class OrderService {
                 order.setEmployee(driver);
                 Order saved = orderRepository.save(order);
                 log.info("Repartidor {} aceptó pedido disponible {}", driver.getId(), orderId);
+                notifyOrderChanged(saved, "DRIVER_ACCEPTED");
                 return mapToResponse(saved, lang);
         }
 
@@ -308,7 +318,9 @@ public class OrderService {
                 if (!allowed) throw new IllegalArgumentException("Transición de entrega no permitida.");
                 order.setStatus(statusRepository.findByCode(newCode)
                         .orElseThrow(() -> new EntityNotFoundException("Estado de entrega inexistente.")));
-                return mapToResponse(orderRepository.save(order), lang);
+                Order saved = orderRepository.save(order);
+                notifyOrderChanged(saved, "DELIVERY_STATUS_CHANGED");
+                return mapToResponse(saved, lang);
         }
 
         @Transactional(readOnly = true)
@@ -668,6 +680,7 @@ public class OrderService {
                 Order savedOrder = orderRepository.save(order);
 
                 log.info("Orden {} actualizada al estado: {}", savedOrder.getId(), newStatus.getCode());
+                notifyOrderChanged(savedOrder, "ORDER_STATUS_CHANGED");
                 return mapToResponse(savedOrder, lang);
         }
 
@@ -718,6 +731,7 @@ public class OrderService {
 
                 log.info("Repartidor {} asignado a la orden {} (estado {})",
                                 driver.getId(), savedOrder.getId(), status);
+                notifyOrderChanged(savedOrder, "DRIVER_ASSIGNED");
                 return mapToResponse(savedOrder, lang);
         }
 
@@ -749,10 +763,8 @@ public class OrderService {
                 order.setCurrentLongitude(request.getLongitude());
                 orderRepository.save(order);
 
-                // (Opcional) Aquí es donde notificarías al cliente en tiempo real
-                // via WebSockets.
-                // notificationProducer.sendDeliveryLocationUpdate(id, request.getLatitude(),
-                // request.getLongitude());
+                // Only an update hint crosses the WebSocket bus; GPS stays behind REST authorization.
+                notifyOrderChanged(order, "LOCATION_UPDATED");
 
                 log.debug("Ubicación actualizada para orden {}: ({}, {})", id, request.getLatitude(),
                                 request.getLongitude());

@@ -4,17 +4,21 @@ spring:
       on-profile: prod
 
   datasource:
-    url: jdbc:postgresql://${DB_HOST:postgres}:${DB_PORT:5432}/${POSTGRES_DB}?sslmode=${DB_SSLMODE:disable}
+    url: jdbc:postgresql://${DB_HOST:postgres}:${DB_PORT:5432}/${POSTGRES_DB}?sslmode=${DB_SSLMODE:require}
     username: ${POSTGRES_USER}
     password: ${POSTGRES_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
   jpa:
     hibernate:
-      ddl-auto: ${JPA_DDL_AUTO:update}
+      ddl-auto: ${JPA_DDL_AUTO:none}
     show-sql: false
 
 app:
+  websocket:
+    cluster:
+      # Use PostgreSQL LISTEN/NOTIFY across all ECS tasks. No in-memory-only events.
+      enabled: true
   # Dominio de CloudFront del backend, no el ALB interno.
   # Puede sustituirse por un dominio propio mediante la variable de entorno.
   file:
